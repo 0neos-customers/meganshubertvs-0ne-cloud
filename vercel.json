@@ -10,7 +10,13 @@
       "has": [
         {
           "type": "host",
-          "value": "project0ne.ai"
+          "value": "(?:www\\.)?project0ne\\.ai"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "app.project0ne.ai"
         }
       ],
       "destination": "https://app.project0ne.ai/:path*",
