@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@0ne/ui'
-import { RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Play, Calendar } from 'lucide-react'
+import { RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Play, Calendar, PlayCircle } from 'lucide-react'
 import { AppShell } from '@/components/shell'
 import {
   useSyncLog,
@@ -326,6 +326,7 @@ function ScheduleCard({
 
 // Schedules Tab content
 function SchedulesTab() {
+  const [isRunningAll, setIsRunningAll] = useState(false)
   const { schedules, isLoading, error, runningCrons, runSync, refresh } = useSchedules()
 
   const handleRunNow = async (cronId: string) => {
@@ -335,6 +336,24 @@ function SchedulesTab() {
       console.error('Failed to trigger sync:', result.error)
     }
   }
+
+  const handleRunAll = async () => {
+    setIsRunningAll(true)
+    try {
+      // Run all syncs in parallel
+      const results = await Promise.all(
+        schedules.map((schedule) => runSync(schedule.id))
+      )
+      const failed = results.filter((r) => !r.success)
+      if (failed.length > 0) {
+        console.error(`${failed.length} syncs failed to trigger`)
+      }
+    } finally {
+      setIsRunningAll(false)
+    }
+  }
+
+  const isAnySyncRunning = isRunningAll || Object.values(runningCrons).some(Boolean)
 
   if (isLoading) {
     return (
@@ -358,15 +377,35 @@ function SchedulesTab() {
 
   return (
     <div className="space-y-4">
-      {/* Header with refresh */}
+      {/* Header with Run All and refresh */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {schedules.length} scheduled sync jobs
         </p>
-        <Button variant="outline" size="sm" onClick={refresh}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleRunAll}
+            disabled={isAnySyncRunning}
+          >
+            {isRunningAll ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Running All...
+              </>
+            ) : (
+              <>
+                <PlayCircle className="mr-2 h-4 w-4" />
+                Run All Syncs
+              </>
+            )}
+          </Button>
+          <Button variant="outline" size="sm" onClick={refresh}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Schedule cards grid */}
@@ -383,7 +422,7 @@ function SchedulesTab() {
 
       {/* Info text */}
       <p className="text-xs text-muted-foreground text-center mt-4">
-        Click "Run Now" to manually trigger a sync. The sync will run in the background.
+        Click "Run All Syncs" to trigger all jobs, or "Run Now" on individual cards. Syncs run in the background.
       </p>
     </div>
   )
