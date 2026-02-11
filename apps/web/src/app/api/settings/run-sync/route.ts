@@ -98,11 +98,6 @@ export async function POST(request: NextRequest) {
 
     // Fire and forget - trigger the cron
     // We don't await this so the response returns immediately
-    console.log('[run-sync] Triggering cron:', {
-      cronUrl,
-      hasCronSecret: !!cronSecret,
-      cronSecretPreview: cronSecret ? `${cronSecret.substring(0, 8)}...` : null,
-    })
     triggerCronInBackground(cronUrl, cronSecret)
 
     return NextResponse.json({

@@ -23,23 +23,12 @@ function verifyCronSecret(request: Request): boolean {
   const authHeader = request.headers.get('Authorization')
   const cronSecret = process.env.CRON_SECRET
 
-  // Debug logging
-  console.log('[sync-ghl-payments] Auth debug:', {
-    hasAuthHeader: !!authHeader,
-    authHeaderPreview: authHeader ? `${authHeader.substring(0, 20)}...` : null,
-    hasCronSecret: !!cronSecret,
-    cronSecretPreview: cronSecret ? `${cronSecret.substring(0, 8)}...` : null,
-  })
-
   if (!cronSecret) {
     console.warn('[sync-ghl-payments] CRON_SECRET not set')
     return false
   }
 
-  const isValid = authHeader === `Bearer ${cronSecret}`
-  console.log('[sync-ghl-payments] Auth result:', { isValid })
-
-  return isValid
+  return authHeader === `Bearer ${cronSecret}`
 }
 
 export async function GET(request: Request) {

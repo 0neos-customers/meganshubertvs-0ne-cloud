@@ -125,13 +125,13 @@ export function MediaGrid({
             </tr>
           </thead>
           <tbody>
-            {sortedFiles.map((file) => {
+            {sortedFiles.map((file, index) => {
               const isSelected = selectedIds.has(file.id)
               const isFolder = file.type === 'folder'
 
               return (
                 <tr
-                  key={file.id}
+                  key={file.id || `file-${index}`}
                   className={`border-b last:border-b-0 cursor-pointer transition-colors ${
                     isSelected ? 'bg-primary/5' : 'hover:bg-muted/30'
                   }`}
@@ -191,14 +191,14 @@ export function MediaGrid({
   // Grid view
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {sortedFiles.map((file) => {
+      {sortedFiles.map((file, index) => {
         const isSelected = selectedIds.has(file.id)
         const isFolder = file.type === 'folder'
         const showThumbnail = canShowThumbnail(file)
 
         return (
           <Card
-            key={file.id}
+            key={file.id || `file-${index}`}
             className={`relative cursor-pointer p-3 transition-all ${
               isSelected
                 ? 'ring-2 ring-primary bg-primary/5'
