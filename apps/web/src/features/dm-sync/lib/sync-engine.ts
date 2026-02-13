@@ -7,20 +7,61 @@
  * @module dm-sync/lib/sync-engine
  */
 
+import { createServerClient } from '@0ne/db/server'
 import type {
   DmSyncConfig,
   SyncResult,
   SyncError,
   SkoolConversation,
   SkoolMessage,
-  DmMessage,
+  DmMessageRow,
 } from '../types'
-import { SkoolDmClient } from './skool-dm-client'
-import { ContactMapper } from './contact-mapper'
-import { GhlConversationClient } from './ghl-conversation'
+import { SkoolDmClient, createSkoolDmClient } from './skool-dm-client'
+import { ContactMapper, findOrCreateGhlContact } from './contact-mapper'
+import {
+  GhlConversationClient,
+  GhlConversationProviderClient,
+  createGhlConversationProviderClientFromEnv,
+} from './ghl-conversation'
 
 // =============================================================================
 // CONFIGURATION
+// =============================================================================
+
+/** Rate limit delay between API requests (ms) */
+const REQUEST_DELAY_MS = 200
+
+/** Maximum conversations to sync in a single run */
+const DEFAULT_MAX_CONVERSATIONS = 50
+
+/** Maximum messages per conversation to sync */
+const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 100
+
+// =============================================================================
+// RESULT TYPES
+// =============================================================================
+
+/**
+ * Result from inbound sync operation
+ */
+export interface InboundSyncResult {
+  synced: number
+  skipped: number
+  errors: number
+  errorDetails: SyncError[]
+}
+
+/**
+ * Result from outbound send operation
+ */
+export interface SendPendingResult {
+  sent: number
+  failed: number
+  errorDetails: SyncError[]
+}
+
+// =============================================================================
+// SYNC ENGINE CONFIGURATION
 // =============================================================================
 
 /**
@@ -47,7 +88,395 @@ export interface SyncOptions {
 }
 
 // =============================================================================
-// SYNC ENGINE CLASS
+// STANDALONE SYNC FUNCTIONS
+// =============================================================================
+
+/**
+ * Sync inbound messages from Skool to GHL
+ *
+ * 1. Get inbox from Skool using SkoolDmClient
+ * 2. For each conversation, get messages
+ * 3. Skip messages already in dm_messages table (deduplication)
+ * 4. Skip outbound messages (we sent them)
+ * 5. Find/create GHL contact using findOrCreateGhlContact()
+ * 6. Push message to GHL using GhlConversationProviderClient
+ * 7. Insert into dm_messages with status='synced'
+ *
+ * @param userId - The user ID for multi-tenant support
+ * @returns Sync result with counts
+ */
+export async function syncInboundMessages(
+  userId: string
+): Promise<InboundSyncResult> {
+  const supabase = createServerClient()
+  const result: InboundSyncResult = {
+    synced: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  }
+
+  console.log(`[Sync Engine] Starting inbound sync for user: ${userId}`)
+
+  try {
+    // Get user's sync config
+    const { data: syncConfig, error: configError } = await supabase
+      .from('dm_sync_config')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('enabled', true)
+      .single()
+
+    if (configError || !syncConfig) {
+      console.log(`[Sync Engine] No enabled sync config for user: ${userId}`)
+      return result
+    }
+
+    // Initialize clients
+    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug)
+    const ghlClient = createGhlConversationProviderClientFromEnv(
+      syncConfig.ghl_location_id,
+      process.env.GHL_CONVERSATION_PROVIDER_ID
+    )
+
+    // Get Skool inbox (conversations)
+    const conversations = await skoolClient.getInbox(0, DEFAULT_MAX_CONVERSATIONS)
+    console.log(`[Sync Engine] Found ${conversations.length} conversations`)
+
+    // Process each conversation
+    for (const conversation of conversations) {
+      try {
+        await processConversation(
+          userId,
+          conversation,
+          syncConfig.ghl_location_id,
+          skoolClient,
+          ghlClient,
+          supabase,
+          result
+        )
+
+        // Rate limiting
+        await delay(REQUEST_DELAY_MS)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error(
+          `[Sync Engine] Error processing conversation ${conversation.id}:`,
+          errorMessage
+        )
+        result.errors++
+        result.errorDetails.push({
+          conversationId: conversation.id,
+          error: errorMessage,
+        })
+      }
+    }
+
+    console.log(
+      `[Sync Engine] Inbound sync complete: synced=${result.synced}, skipped=${result.skipped}, errors=${result.errors}`
+    )
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('[Sync Engine] Fatal error during inbound sync:', errorMessage)
+    result.errors++
+    result.errorDetails.push({
+      error: `Fatal sync error: ${errorMessage}`,
+    })
+  }
+
+  return result
+}
+
+/**
+ * Process a single conversation for inbound sync
+ */
+async function processConversation(
+  userId: string,
+  conversation: SkoolConversation,
+  ghlLocationId: string,
+  skoolClient: SkoolDmClient,
+  ghlClient: GhlConversationProviderClient,
+  supabase: ReturnType<typeof createServerClient>,
+  result: InboundSyncResult
+): Promise<void> {
+  // Get messages for this conversation
+  const messages = await skoolClient.getMessages(
+    conversation.channelId,
+    '1' // Get all messages from beginning
+  )
+
+  console.log(
+    `[Sync Engine] Processing ${messages.length} messages for conversation ${conversation.id}`
+  )
+
+  // Get current user's Skool ID for detecting outbound messages
+  const currentUserId = await skoolClient.getCurrentUserId()
+
+  // Get already synced message IDs for this conversation
+  const { data: existingMessages } = await supabase
+    .from('dm_messages')
+    .select('skool_message_id')
+    .eq('user_id', userId)
+    .eq('skool_conversation_id', conversation.channelId)
+
+  const syncedMessageIds = new Set(
+    (existingMessages || []).map((m) => m.skool_message_id)
+  )
+
+  // Find/create GHL contact for this conversation's participant
+  let ghlContactId: string | null = null
+
+  for (const message of messages) {
+    // Skip already synced messages (deduplication)
+    if (syncedMessageIds.has(message.id)) {
+      result.skipped++
+      continue
+    }
+
+    // Skip outbound messages (we sent them)
+    if (message.isOutbound || message.senderId === currentUserId) {
+      result.skipped++
+      continue
+    }
+
+    try {
+      // Lazily find/create GHL contact on first inbound message
+      if (!ghlContactId) {
+        const contactResult = await findOrCreateGhlContact(
+          userId,
+          conversation.participant.id,
+          conversation.participant.username,
+          conversation.participant.displayName
+        )
+        ghlContactId = contactResult.ghlContactId
+      }
+
+      // Push message to GHL
+      const ghlMessageId = await ghlClient.pushInboundMessage(
+        ghlLocationId,
+        ghlContactId,
+        conversation.participant.id,
+        message.content,
+        message.id // Use Skool message ID as altId for deduplication
+      )
+
+      // Record in dm_messages table
+      const messageRow: Omit<DmMessageRow, 'id'> = {
+        user_id: userId,
+        skool_conversation_id: conversation.channelId,
+        skool_message_id: message.id,
+        ghl_message_id: ghlMessageId,
+        skool_user_id: message.senderId,
+        direction: 'inbound',
+        message_text: message.content,
+        status: 'synced',
+        created_at: message.sentAt.toISOString(),
+        synced_at: new Date().toISOString(),
+      }
+
+      const { error: insertError } = await supabase
+        .from('dm_messages')
+        .insert(messageRow)
+
+      if (insertError) {
+        throw new Error(`Failed to record synced message: ${insertError.message}`)
+      }
+
+      result.synced++
+      console.log(`[Sync Engine] Synced message ${message.id} -> ${ghlMessageId}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error(`[Sync Engine] Error syncing message ${message.id}:`, errorMessage)
+      result.errors++
+      result.errorDetails.push({
+        messageId: message.id,
+        conversationId: conversation.channelId,
+        error: errorMessage,
+      })
+    }
+  }
+}
+
+/**
+ * Send pending outbound messages via Skool
+ *
+ * 1. Query dm_messages where direction='outbound' AND status='pending'
+ * 2. For each pending message:
+ *    - Get skool_conversation_id (or find/create conversation)
+ *    - Send via SkoolDmClient.sendMessage()
+ *    - Update status to 'sent'
+ *
+ * @param userId - The user ID for multi-tenant support
+ * @returns Send result with counts
+ */
+export async function sendPendingMessages(
+  userId: string
+): Promise<SendPendingResult> {
+  const supabase = createServerClient()
+  const result: SendPendingResult = {
+    sent: 0,
+    failed: 0,
+    errorDetails: [],
+  }
+
+  console.log(`[Sync Engine] Starting outbound send for user: ${userId}`)
+
+  try {
+    // Get user's sync config
+    const { data: syncConfig, error: configError } = await supabase
+      .from('dm_sync_config')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('enabled', true)
+      .single()
+
+    if (configError || !syncConfig) {
+      console.log(`[Sync Engine] No enabled sync config for user: ${userId}`)
+      return result
+    }
+
+    // Initialize Skool client
+    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug)
+
+    // Get pending outbound messages
+    const { data: pendingMessages, error: queryError } = await supabase
+      .from('dm_messages')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('direction', 'outbound')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(50) // Process up to 50 messages per run
+
+    if (queryError) {
+      throw new Error(`Failed to query pending messages: ${queryError.message}`)
+    }
+
+    if (!pendingMessages || pendingMessages.length === 0) {
+      console.log('[Sync Engine] No pending outbound messages')
+      return result
+    }
+
+    console.log(`[Sync Engine] Found ${pendingMessages.length} pending messages`)
+
+    // Process each pending message
+    for (const message of pendingMessages) {
+      try {
+        // Get the Skool conversation ID
+        let conversationId = message.skool_conversation_id
+
+        // If no conversation ID, try to find/create one
+        if (!conversationId && message.skool_user_id) {
+          const conversation = await skoolClient.getOrCreateConversation(
+            message.skool_user_id
+          )
+          conversationId = conversation.channelId
+
+          // Update the message with the conversation ID
+          await supabase
+            .from('dm_messages')
+            .update({ skool_conversation_id: conversationId })
+            .eq('id', message.id)
+        }
+
+        if (!conversationId) {
+          throw new Error('No conversation ID and unable to create one')
+        }
+
+        // Send the message via Skool
+        const sendResult = await skoolClient.sendMessage(
+          conversationId,
+          message.message_text || ''
+        )
+
+        if (!sendResult.success) {
+          throw new Error(sendResult.error || 'Failed to send message')
+        }
+
+        // Update message status to 'sent'
+        const { error: updateError } = await supabase
+          .from('dm_messages')
+          .update({
+            status: 'sent',
+            skool_message_id: sendResult.skoolMessageId || message.skool_message_id,
+            synced_at: new Date().toISOString(),
+          })
+          .eq('id', message.id)
+
+        if (updateError) {
+          console.error(
+            `[Sync Engine] Failed to update message status:`,
+            updateError.message
+          )
+        }
+
+        result.sent++
+        console.log(
+          `[Sync Engine] Sent message ${message.id} -> ${sendResult.skoolMessageId}`
+        )
+
+        // Rate limiting with human-like delay (already in sendMessage, but add extra)
+        await delay(REQUEST_DELAY_MS)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error(
+          `[Sync Engine] Error sending message ${message.id}:`,
+          errorMessage
+        )
+
+        // Update status to 'failed'
+        await supabase
+          .from('dm_messages')
+          .update({ status: 'failed' })
+          .eq('id', message.id)
+
+        result.failed++
+        result.errorDetails.push({
+          messageId: message.id,
+          conversationId: message.skool_conversation_id,
+          error: errorMessage,
+        })
+      }
+    }
+
+    console.log(
+      `[Sync Engine] Outbound send complete: sent=${result.sent}, failed=${result.failed}`
+    )
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('[Sync Engine] Fatal error during outbound send:', errorMessage)
+    result.failed++
+    result.errorDetails.push({
+      error: `Fatal send error: ${errorMessage}`,
+    })
+  }
+
+  return result
+}
+
+/**
+ * Get all enabled sync configs for cron processing
+ */
+export async function getEnabledSyncConfigs(): Promise<
+  Array<{ user_id: string; skool_community_slug: string; ghl_location_id: string }>
+> {
+  const supabase = createServerClient()
+
+  const { data, error } = await supabase
+    .from('dm_sync_config')
+    .select('user_id, skool_community_slug, ghl_location_id')
+    .eq('enabled', true)
+
+  if (error) {
+    console.error('[Sync Engine] Error fetching sync configs:', error.message)
+    return []
+  }
+
+  return data || []
+}
+
+// =============================================================================
+// SYNC ENGINE CLASS (Legacy - kept for backward compatibility)
 // =============================================================================
 
 /**
@@ -96,14 +525,20 @@ export class DmSyncEngine {
    * Sync inbound messages from Skool to GHL
    */
   async syncInbound(_options?: SyncOptions): Promise<SyncResult> {
-    // TODO: Implement inbound sync
-    // 1. Fetch Skool conversations
-    // 2. For each conversation, check for new messages
-    // 3. Map Skool user to GHL contact
-    // 4. Get/create GHL conversation
-    // 5. Sync messages to GHL
-    // 6. Mark as synced in dm_messages table
-    throw new Error('Not implemented')
+    const startTime = Date.now()
+    const result = await syncInboundMessages(this.config.userId)
+
+    return {
+      success: result.errors === 0,
+      stats: {
+        total: result.synced + result.skipped + result.errors,
+        synced: result.synced,
+        skipped: result.skipped,
+        failed: result.errors,
+      },
+      errors: result.errorDetails,
+      duration: Date.now() - startTime,
+    }
   }
 
   /**
@@ -111,8 +546,20 @@ export class DmSyncEngine {
    * (for messages sent in GHL that need to be echoed to Skool)
    */
   async syncOutbound(_options?: SyncOptions): Promise<SyncResult> {
-    // TODO: Implement outbound sync (optional for v1)
-    throw new Error('Not implemented')
+    const startTime = Date.now()
+    const result = await sendPendingMessages(this.config.userId)
+
+    return {
+      success: result.failed === 0,
+      stats: {
+        total: result.sent + result.failed,
+        synced: result.sent,
+        skipped: 0,
+        failed: result.failed,
+      },
+      errors: result.errorDetails,
+      duration: Date.now() - startTime,
+    }
   }
 
   /**
@@ -141,6 +588,20 @@ export class DmSyncEngine {
       })
     }
 
+    try {
+      // Sync outbound messages
+      const outboundResult = await this.syncOutbound(options)
+      totalMessages += outboundResult.stats.total
+      totalSynced += outboundResult.stats.synced
+      totalSkipped += outboundResult.stats.skipped
+      totalFailed += outboundResult.stats.failed
+      errors.push(...outboundResult.errors)
+    } catch (error) {
+      errors.push({
+        error: `Outbound sync failed: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    }
+
     return {
       success: errors.length === 0,
       stats: {
@@ -158,20 +619,50 @@ export class DmSyncEngine {
    * Check if a message has already been synced
    */
   async isMessageSynced(skoolMessageId: string): Promise<boolean> {
-    // TODO: Query dm_messages table
-    void skoolMessageId
-    throw new Error('Not implemented')
+    const supabase = createServerClient()
+    const { data } = await supabase
+      .from('dm_messages')
+      .select('id')
+      .eq('user_id', this.config.userId)
+      .eq('skool_message_id', skoolMessageId)
+      .single()
+
+    return !!data
   }
 
   /**
    * Record a synced message
    */
   async recordSyncedMessage(
-    _skoolMessage: SkoolMessage,
-    _ghlMessageId: string
-  ): Promise<DmMessage> {
-    // TODO: Insert into dm_messages table
-    throw new Error('Not implemented')
+    skoolMessage: SkoolMessage,
+    ghlMessageId: string
+  ): Promise<DmMessageRow> {
+    const supabase = createServerClient()
+
+    const messageRow: Omit<DmMessageRow, 'id'> = {
+      user_id: this.config.userId,
+      skool_conversation_id: skoolMessage.conversationId,
+      skool_message_id: skoolMessage.id,
+      ghl_message_id: ghlMessageId,
+      skool_user_id: skoolMessage.senderId,
+      direction: skoolMessage.isOutbound ? 'outbound' : 'inbound',
+      message_text: skoolMessage.content,
+      status: 'synced',
+      created_at: skoolMessage.sentAt.toISOString(),
+      synced_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase
+      .from('dm_messages')
+      .insert(messageRow)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to record synced message: ${error.message}`)
+    }
+
+    return data
   }
 
   /**
@@ -184,8 +675,46 @@ export class DmSyncEngine {
     pendingMessages: number
     failedMessages: number
   }> {
-    // TODO: Query dm_messages table for stats
-    throw new Error('Not implemented')
+    const supabase = createServerClient()
+
+    // Get unique conversations
+    const { data: conversations } = await supabase
+      .from('dm_messages')
+      .select('skool_conversation_id')
+      .eq('user_id', this.config.userId)
+
+    const uniqueConversations = new Set(
+      (conversations || []).map((c) => c.skool_conversation_id)
+    )
+
+    // Get message counts by status
+    const { data: messages } = await supabase
+      .from('dm_messages')
+      .select('status, synced_at')
+      .eq('user_id', this.config.userId)
+
+    const totalMessages = messages?.length || 0
+    const pendingMessages = messages?.filter((m) => m.status === 'pending').length || 0
+    const failedMessages = messages?.filter((m) => m.status === 'failed').length || 0
+
+    // Get last sync time
+    const syncedMessages = messages?.filter((m) => m.synced_at) || []
+    const lastSyncAt =
+      syncedMessages.length > 0
+        ? new Date(
+            Math.max(
+              ...syncedMessages.map((m) => new Date(m.synced_at!).getTime())
+            )
+          )
+        : null
+
+    return {
+      totalConversations: uniqueConversations.size,
+      totalMessages,
+      lastSyncAt,
+      pendingMessages,
+      failedMessages,
+    }
   }
 }
 
@@ -206,15 +735,43 @@ export function createSyncEngine(config: SyncEngineConfig): DmSyncEngine {
 export async function createSyncEngineFromConfig(
   configId: string
 ): Promise<DmSyncEngine> {
-  // TODO: Fetch config from database
-  // TODO: Initialize engine with environment variables
-  void configId
-  throw new Error('Not implemented')
+  const supabase = createServerClient()
+
+  const { data: config, error } = await supabase
+    .from('dm_sync_config')
+    .select('*')
+    .eq('id', configId)
+    .single()
+
+  if (error || !config) {
+    throw new Error(`Sync config not found: ${configId}`)
+  }
+
+  return new DmSyncEngine({
+    config: {
+      id: config.id,
+      userId: config.user_id,
+      skoolCommunitySlug: config.skool_community_slug,
+      ghlLocationId: config.ghl_location_id,
+      enabled: config.enabled,
+      createdAt: new Date(config.created_at),
+      updatedAt: new Date(config.updated_at),
+    },
+    skoolCookies: process.env.SKOOL_COOKIES!,
+    ghlApiKey: process.env.GHL_API_KEY!,
+  })
 }
 
 // =============================================================================
 // SYNC UTILITIES
 // =============================================================================
+
+/**
+ * Delay helper for rate limiting
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 /**
  * Determine if conversation needs syncing

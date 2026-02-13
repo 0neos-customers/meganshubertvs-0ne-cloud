@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/send-daily-snapshot",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync-skool-dms",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/send-pending-dms",
+      "schedule": "*/5 * * * *"
     }
   ],
   "headers": [

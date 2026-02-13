@@ -99,12 +99,21 @@ export {
 // =============================================================================
 
 export {
+  // Standalone sync functions (Phase 5)
+  syncInboundMessages,
+  sendPendingMessages,
+  getEnabledSyncConfigs,
+  // Legacy class
   DmSyncEngine,
   createSyncEngine,
   createSyncEngineFromConfig,
+  // Utilities
   needsSync,
   calculateSyncPriority,
   sortBySyncPriority,
+  // Types
   type SyncEngineConfig,
   type SyncOptions,
+  type InboundSyncResult,
+  type SendPendingResult,
 } from './lib/sync-engine'
