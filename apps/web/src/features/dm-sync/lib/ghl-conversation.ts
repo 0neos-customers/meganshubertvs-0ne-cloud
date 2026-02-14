@@ -309,9 +309,12 @@ export class GhlConversationProviderClient {
    * This creates a message in the GHL unified inbox that appears to come
    * from the "Skool" channel (conversation provider).
    *
+   * IMPORTANT: Uses /conversations/messages/inbound endpoint (not /conversations/messages)
+   * so the message appears on the LEFT side of the chat (from the contact).
+   *
    * @param locationId - GHL location ID
    * @param contactId - GHL contact ID
-   * @param skoolUserId - Skool user ID (used as channelContactId for threading)
+   * @param skoolUserId - Skool user ID (used as externalId for threading)
    * @param messageText - The message content
    * @param skoolMessageId - Skool message ID (used as altId for deduplication)
    * @returns GHL message ID
@@ -323,6 +326,8 @@ export class GhlConversationProviderClient {
     messageText: string,
     skoolMessageId: string
   ): Promise<string> {
+    // Use the dedicated inbound endpoint for Conversation Providers
+    // This ensures messages appear on the LEFT side (from contact)
     const body = {
       type: 'Custom',
       contactId,
@@ -330,9 +335,8 @@ export class GhlConversationProviderClient {
       message: messageText,
       conversationProviderId: this.conversationProviderId,
       altId: skoolMessageId, // For deduplication
-      direction: 'inbound',
-      // Channel contact info for threading
-      channelContactId: skoolUserId,
+      // External ID helps GHL thread messages from the same Skool user
+      externalId: skoolUserId,
     }
 
     console.log('[GHL Provider] Pushing inbound message:', {
@@ -342,12 +346,14 @@ export class GhlConversationProviderClient {
       altId: skoolMessageId,
     })
 
+    // Use /conversations/messages/inbound for inbound messages
+    // This is the correct endpoint for messages FROM the contact
     const response = await this.request<{
       conversationId?: string
       messageId?: string
       message?: { id: string }
       id?: string
-    }>('/conversations/messages', {
+    }>('/conversations/messages/inbound', {
       method: 'POST',
       body: JSON.stringify(body),
     })
