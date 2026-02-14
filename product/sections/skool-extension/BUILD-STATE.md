@@ -1,16 +1,24 @@
 # Skool Chrome Extension - Build State
 
 > **Purpose:** Chrome extension that handles ALL Skool communication (API interception, WebSocket tap, message sending, KPI sync, analytics, scheduling) and pushes data to 0ne-app for database storage and GHL sync.
-> **Status:** Phase 2C Complete - Moving to Extension-Only Architecture
+> **Status:** Phase 10 Complete - Full Extension-Only Architecture
 
 ---
 
 ## Quick Resume
 
 **Last Updated:** 2026-02-14
-**Current Phase:** Phase 2C Complete ✅ - Service worker pushes to 0ne-app
-**Next Phase:** Phase 3 - WebSocket interception for real-time sync
+**Current Phase:** Phase 10 Complete ✅ - Post scheduler via extension
+**Next Phase:** Phase 4 - Outbound DM sending (optional), or Phase 6 - Cookie Management
 **Blocker:** None
+
+**Completed Phases (2026-02-14):**
+- Phase 3: WebSocket interception for real-time DM sync
+- Phase 5: Multi-staff support with routing and attribution
+- Phase 7: Clerk auth integration
+- Phase 8: Member/KPI sync via extension
+- Phase 9: Analytics sync via extension
+- Phase 10: Post scheduler via extension
 
 **Key Discovery:** Skool uses API-driven architecture. Fetch interception captures structured data directly from `api2.skool.com/channels/{id}/messages` - no DOM parsing needed.
 
@@ -454,20 +462,28 @@ GET api2.skool.com/groups/{group_id}/posts/{post_id}/stats
 GET api2.skool.com/groups/{group_id}/engagement
 ```
 
-### Phase 10: Post Scheduler via Extension
+### Phase 10: Post Scheduler via Extension ✅ COMPLETE
 **Goal:** Post scheduled content to Skool through the extension
 
 | Task | Status | Description |
 |------|--------|-------------|
-| 10.1 | ⬜ | Create `/api/extension/get-scheduled-posts` endpoint |
-| 10.2 | ⬜ | Extension polls for posts due in next 5 minutes |
-| 10.3 | ⬜ | Navigate to correct Skool group/category |
-| 10.4 | ⬜ | DOM automation: Fill post form (title, body, attachments) |
-| 10.5 | ⬜ | Trigger publish, wait for success |
-| 10.6 | ⬜ | Create `/api/extension/confirm-posted` endpoint |
-| 10.7 | ⬜ | Update `scheduled_posts` table with posted status + Skool post ID |
-| 10.8 | ⬜ | Handle errors: Network, validation, rate limiting |
+| 10.1 | ✅ | Create `/api/extension/get-scheduled-posts` endpoint |
+| 10.2 | ✅ | Extension polls for posts due in next 5 minutes |
+| 10.3 | ✅ | Navigate to correct Skool group/category |
+| 10.4 | ✅ | DOM automation: Fill post form (title, body, attachments) |
+| 10.5 | ✅ | Trigger publish, wait for success |
+| 10.6 | ✅ | Create `/api/extension/confirm-posted` endpoint |
+| 10.7 | ✅ | Update `scheduled_posts` table with posted status + Skool post ID |
+| 10.8 | ✅ | Handle errors: Network, validation, rate limiting |
 | 10.9 | ⬜ | Update popup UI: Show scheduled queue, next post time |
+
+**Implementation Notes (2026-02-14):**
+- `get-scheduled-posts` API queries both `skool_oneoff_posts` and `skool_scheduled_posts` tables
+- `confirm-posted` API handles both one-off (`uuid`) and recurring (`recurring:scheduleId:libraryId`) post formats
+- `post-publisher.ts` handles DOM automation with retry logic and graceful navigation
+- `scheduler-client.ts` manages state with `chrome.storage.local`
+- Service worker polls every 30 seconds via `ALARM_POLL_SCHEDULED` alarm
+- Task 10.9 (popup UI enhancement) deferred - core functionality complete
 
 **Post Scheduling Flow:**
 ```
@@ -664,24 +680,28 @@ COMMIT: "Phase {X.Y}: {Description}"
 
 ---
 
-## Next Step
+## Current Status
 
-### Phase 3: WebSocket Interception ⬅️ START HERE
+### All Core Phases Complete ✅
 
 **What's Working:**
 - ✅ API interception captures conversations + messages
-- ✅ Data flows to service worker
-- ✅ Service worker pushes to 0ne-app API with buffering, dedup, retry
-- ✅ Popup shows sync stats (totalPushed, lastSyncTime, connection status)
+- ✅ WebSocket interception for real-time DM events
+- ✅ Data flows to service worker with buffering, dedup, retry
 - ✅ Extension messages sync to GHL via cron job
+- ✅ Multi-staff support with routing and attribution
+- ✅ Clerk auth integration for seamless login
+- ✅ Member/KPI sync from Skool admin pages
+- ✅ Analytics sync from Skool dashboard
+- ✅ Post scheduler with DOM automation
 
-**Next Tasks:**
-1. Intercept `new WebSocket()` constructor in `main-world.ts`
-2. Intercept `WebSocket.prototype.send` and `onmessage`
-3. Filter for DM events from `wss://groups-ps.skool.com/ws`
-4. Forward real-time messages to service worker
+**Remaining Optional Phases:**
+- Phase 4: Outbound DM sending (GHL replies -> Skool)
+- Phase 6: Cookie management/backup
+- Phase 2B: Full history capture (auto-scroll)
 
-**Goal:** Capture messages instantly as they arrive via WebSocket, not just on page load/refresh.
+**Next Recommended:**
+Phase 4 (Outbound DM Sending) or Phase 6 (Cookie Management) based on priority.
 
 ---
 
@@ -693,14 +713,14 @@ COMMIT: "Phase {X.Y}: {Description}"
 | 2 | ✅ | API Interception (Pivot from DOM) |
 | 2B | ⬜ | Full History Capture (Optional) |
 | 2C | ✅ | Push to 0ne-app |
-| 3 | ⬅️ | WebSocket Interception (Real-time) |
+| 3 | ✅ | WebSocket Interception (Real-time) |
 | 4 | ⬜ | Outbound Message Sending |
-| 5 | ⬜ | Multi-Staff Support |
+| 5 | ✅ | Multi-Staff Support |
 | 6 | ⬜ | Cookie Management |
-| 7 | ⬜ | Clerk Auth Integration |
-| **8** | ⬜ | **Member/KPI Sync via Extension** |
-| **9** | ⬜ | **Analytics Sync via Extension** |
-| **10** | ⬜ | **Post Scheduler via Extension** |
+| 7 | ✅ | Clerk Auth Integration |
+| **8** | ✅ | **Member/KPI Sync via Extension** |
+| **9** | ✅ | **Analytics Sync via Extension** |
+| **10** | ✅ | **Post Scheduler via Extension** |
 
 ---
 
