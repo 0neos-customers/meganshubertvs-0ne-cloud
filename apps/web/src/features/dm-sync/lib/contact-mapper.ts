@@ -286,7 +286,10 @@ export async function findGhlContactsForUsers(
         user.skoolDisplayName,
         user.memberData
       )
-      results.set(user.skoolUserId, result.ghlContactId)
+      // Only add to results if we have a valid contact ID
+      if (result.ghlContactId) {
+        results.set(user.skoolUserId, result.ghlContactId)
+      }
 
       // Rate limit - 200ms between GHL API calls
       await new Promise((resolve) => setTimeout(resolve, 200))
@@ -600,7 +603,16 @@ async function cacheMapping(
     ghl_contact_id: ghlContactId,
     skool_username: skoolUsername,
     skool_display_name: skoolDisplayName,
-    match_method: matchMethod === 'created' ? 'synthetic' : matchMethod === 'cache' ? 'skool_id' : matchMethod === 'skool_members' ? 'email' : matchMethod,
+    match_method:
+      matchMethod === 'created'
+        ? 'synthetic'
+        : matchMethod === 'cache'
+          ? 'skool_id'
+          : matchMethod === 'skool_members'
+            ? 'email'
+            : matchMethod === 'no_email'
+              ? null // Should never happen - we don't cache when no email
+              : matchMethod,
   }
 
   const { error } = await supabase.from('dm_contact_mappings').upsert(mappingRow, {
