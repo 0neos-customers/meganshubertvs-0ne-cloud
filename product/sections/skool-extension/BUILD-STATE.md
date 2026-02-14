@@ -1,15 +1,24 @@
 # Skool Chrome Extension - Build State
 
-> **Purpose:** Chrome extension that handles ALL Skool communication (DOM scraping, WebSocket interception, message sending) and pushes data to 0ne-app for database storage and GHL sync.
-> **Status:** Phase 1 - Foundation
+> **Purpose:** Chrome extension that handles ALL Skool communication (API interception, WebSocket tap, message sending) and pushes data to 0ne-app for database storage and GHL sync.
+> **Status:** Phase 2 - API Interception (Pivoted from DOM)
 
 ---
 
 ## Quick Resume
 
 **Last Updated:** 2026-02-14
-**Current Phase:** Phase 1 Complete - Ready for Phase 2
+**Current Phase:** Phase 2C Complete ✅ - Service worker pushes to 0ne-app
+**Next Phase:** Phase 3 - WebSocket interception for real-time sync
 **Blocker:** None
+
+**Key Discovery:** Skool uses API-driven architecture. Fetch interception captures structured data directly from `api2.skool.com/channels/{id}/messages` - no DOM parsing needed.
+
+**Verified Working (2026-02-14 00:43):**
+- ✅ Intercepting `api2.skool.com/self/chat-channels` → 30 conversations captured
+- ✅ Intercepting `api2.skool.com/channels/{id}/messages` → 8-26 messages per chat
+- ✅ Data forwarded to service worker via postMessage bridge
+- ✅ Uses Manifest V3 `world: "MAIN"` for CSP-compliant fetch interception
 
 ---
 
@@ -41,9 +50,35 @@ ALWAYS spawn a Task agent for each phase.
 
 | Problem | Impact | Extension Solution |
 |---------|--------|-------------------|
-| **Skool API returns ~1 message per conversation** | Cannot backfill full DM history | DOM scraping captures complete conversations |
+| **Skool API returns ~1 message per conversation** | Cannot backfill full DM history | API interception captures all API responses |
 | **Cookies expire frequently** | Server-side sync breaks silently | Extension uses active browser session |
 | **No real-time sync** | Polling-based, delayed updates | WebSocket interception for instant capture |
+
+### Architecture Pivot (2026-02-14)
+
+**Discovery:** Skool uses API-driven architecture (Next.js), NOT server-rendered DOM.
+
+**Old approach (DOM scraping):** Parse DOM elements with MutationObserver
+**New approach (API interception):** Intercept fetch() calls to Skool API endpoints
+
+**Why API interception is better:**
+- ✅ Captures complete, structured data (not parsed HTML)
+- ✅ Works regardless of DOM structure changes
+- ✅ Gets message IDs, timestamps, sender IDs directly
+- ✅ More reliable than CSS selector guessing
+- ✅ Catches ALL messages loaded by the app
+
+**Key API endpoints to intercept:**
+```
+GET api2.skool.com/channels/{channel_id}/messages  → Message content
+GET /_next/data/{build-id}/chats.json              → Conversation list
+GET api2.skool.com/self/chat-channels              → Alternative chat list
+```
+
+**WebSocket for real-time:**
+```
+wss://groups-ps.skool.com/ws  → Real-time message events
+```
 
 ### Multi-Staff Requirement
 
@@ -65,7 +100,7 @@ Jimmy + Juan (and potentially more) need to:
 │    │  Jimmy's Browser   │        │   Juan's Browser   │                 │
 │    │  (Extension)       │        │   (Extension)      │                 │
 │    │                    │        │                    │                 │
-│    │  • DOM scraping    │        │  • DOM scraping    │                 │
+│    │  • API intercept   │        │  • API intercept   │                 │
 │    │  • WebSocket tap   │        │  • WebSocket tap   │                 │
 │    │  • Send messages   │        │  • Send messages   │                 │
 │    │  • Cookie extract  │        │  • Cookie extract  │                 │
@@ -145,27 +180,124 @@ Juan (via Skool): I'll take a look at your file.
 | 1.6 | ✅ | Create `/api/extension/push-messages` endpoint |
 | 1.7 | ✅ | Basic popup UI: Connection status, sync stats |
 
-### Phase 2: Full DM History Scraping ⬅️ NEXT
-**Goal:** Scrape complete conversation history (solving the API limitation)
+### Phase 2: API Interception ✅ COMPLETE (Pivot from DOM)
+**Goal:** Intercept Skool API calls instead of parsing DOM (more reliable)
 
 | Task | Status | Description |
 |------|--------|-------------|
-| 2.1 | ⬅️ NEXT | Content script: Trigger scroll-to-top in conversation view |
-| 2.2 | ⬜ | Observe DOM mutations during scroll (capture all messages) |
-| 2.3 | ⬜ | Deduplication: Track message IDs to avoid re-pushing |
-| 2.4 | ⬜ | Rate limiting: Throttle scroll actions to appear human |
-| 2.5 | ⬜ | Batch push: Send messages in batches to reduce API calls |
+| 2.1 | ✅ | Create `api-interceptor.ts` with fetch() interception |
+| 2.2 | ✅ | Parse Skool API message format (`metadata.content`, `metadata.src/dst`) |
+| 2.3 | ✅ | Parse Skool API channel format (conversations list) |
+| 2.4 | ✅ | Deduplication via `seenMessageIds` Set |
+| 2.5 | ✅ | XHR interception fallback |
+| 2.6 | ✅ | Integrate with existing service worker message flow |
+
+### Phase 2C: Push to 0ne-app ✅ COMPLETE
+**Goal:** Service worker actually pushes captured data to 0ne-app API
+
+| Task | Status | Description |
+|------|--------|-------------|
+| 2C.1 | ✅ | Service worker: Buffer incoming messages (`messageBuffers` Map) |
+| 2C.2 | ✅ | Add deduplication in service worker (merge with existing buffer by ID) |
+| 2C.3 | ✅ | POST to `/api/extension/push-messages` with batch of messages |
+| 2C.4 | ✅ | Include: `staffSkoolId`, `conversationId`, `messages[]`, `timestamp` |
+| 2C.5 | ✅ | Handle auth (API key from chrome.storage via `getApiConfig()`) |
+| 2C.6 | ✅ | Update popup UI with push stats (total synced, last sync time) |
+| 2C.7 | ✅ | Retry logic for failed pushes (exponential backoff, max 3 retries) |
+
+**Implementation Notes:**
+- `service-worker.ts`: Message buffering with `messageBuffers` Map, periodic flush via alarms (30s), threshold-based immediate flush (10 messages)
+- `api-client.ts`: `pushMessages()` POSTs to API, `recordSuccessfulPush()`/`recordFailedPush()` track stats
+- Popup already shows: totalPushed, lastSyncTime, bufferedMessages, connection status
+
+**Service Worker Message Handling:**
+```typescript
+// In service-worker.ts
+case 'MESSAGES_PARSED':
+  await bufferMessages(payload.messages);
+  await pushToOneApp(payload);
+  break;
+
+case 'CONVERSATIONS_FOUND':
+  await bufferConversations(payload.conversations);
+  break;
+```
+
+**API Payload Format:**
+```typescript
+POST /api/extension/push-messages
+{
+  staffSkoolId: "236af8c631ac4671919a4a9bc1b1fde0",
+  messages: [
+    {
+      skoolMessageId: "abc123",
+      conversationId: "ca8059a...",
+      senderId: "sender-skool-id",
+      content: "message text",
+      timestamp: "2026-02-14T00:00:00Z",
+      isOwnMessage: false
+    }
+  ]
+}
+```
+
+---
+
+### Phase 2B: Capture Full History (Optional Enhancement)
+**Goal:** Auto-scroll to load complete conversation history
+
+| Task | Status | Description |
+|------|--------|-------------|
+| 2B.1 | ⬜ | Detect when user opens a conversation modal |
+| 2B.2 | ⬜ | Inject scroll trigger to load older messages |
+| 2B.3 | ⬜ | Monitor for "no more messages" indicator |
+| 2B.4 | ⬜ | Rate-limit scrolling (500ms intervals) |
+| 2B.5 | ⬜ | Show "Syncing history..." indicator in popup |
+
+**Note:** May not be needed if API interception captures enough on first load.
+
+---
 
 ### Phase 3: WebSocket Interception
-**Goal:** Real-time message capture without polling
+**Goal:** Real-time message capture (instant, no refresh needed)
 
 | Task | Status | Description |
 |------|--------|-------------|
-| 3.1 | ⬜ | Inject script to intercept `WebSocket.prototype.send` |
-| 3.2 | ⬜ | Parse Skool WebSocket message format |
-| 3.3 | ⬜ | Filter for DM events (new message, typing, read receipt) |
-| 3.4 | ⬜ | Immediately push new messages to 0ne-app |
-| 3.5 | ⬜ | Fall back to DOM polling if WebSocket unavailable |
+| 3.1 | ⬜ | In `main-world.ts`: Intercept `new WebSocket()` constructor |
+| 3.2 | ⬜ | Intercept `WebSocket.prototype.send` and `onmessage` |
+| 3.3 | ⬜ | Identify Skool WebSocket URL: `wss://groups-ps.skool.com/ws` |
+| 3.4 | ⬜ | Parse WebSocket message format (likely JSON) |
+| 3.5 | ⬜ | Filter for DM events: new_message, typing, read_receipt |
+| 3.6 | ⬜ | Post to content script via postMessage |
+| 3.7 | ⬜ | Forward to service worker for push to 0ne-app |
+
+**WebSocket Interception Pattern:**
+```typescript
+// In main-world.ts
+const OriginalWebSocket = window.WebSocket;
+window.WebSocket = function(url, protocols) {
+  const ws = new OriginalWebSocket(url, protocols);
+
+  if (url.includes('skool.com')) {
+    log('🔌 WebSocket connection:', url);
+
+    ws.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'dm' || data.channel?.includes('chat')) {
+          window.postMessage({
+            source: 'skool-dm-sync-main',
+            type: 'WEBSOCKET_MESSAGE',
+            data: data
+          }, '*');
+        }
+      } catch (e) {}
+    });
+  }
+
+  return ws;
+};
+```
 
 ### Phase 4: Outbound Message Sending
 **Goal:** Send DMs from GHL through the extension
@@ -219,7 +351,7 @@ Juan (via Skool): I'll take a look at your file.
 
 ## Critical File Paths
 
-### Extension (to be created)
+### Extension
 ```
 03 - BUILD/03-1 - Apps/Skool-Extension/
 ├── manifest.json
@@ -230,17 +362,21 @@ Juan (via Skool): I'll take a look at your file.
 │   ├── background/
 │   │   └── service-worker.ts       # Message relay, polling
 │   ├── content/
-│   │   ├── dm-monitor.ts           # DOM observation
-│   │   ├── dm-sender.ts            # Outbound DOM automation
-│   │   ├── websocket-tap.ts        # WebSocket interception
-│   │   └── cookie-extractor.ts     # Cookie management
+│   │   ├── index.ts                # Main entry, init sequence
+│   │   ├── api-interceptor.ts      # ✅ PRIMARY: Fetch/XHR interception
+│   │   ├── dm-monitor.ts           # Fallback: DOM observation + navigation
+│   │   ├── dm-sender.ts            # Outbound DOM automation (future)
+│   │   ├── websocket-tap.ts        # WebSocket interception (future)
+│   │   └── cookie-extractor.ts     # Cookie management (future)
 │   ├── popup/
 │   │   ├── popup.html
 │   │   ├── popup.tsx               # Status UI
 │   │   └── popup.css
 │   ├── lib/
 │   │   ├── api-client.ts           # 0ne-app API client
-│   │   ├── skool-parser.ts         # DOM parsing utilities
+│   │   ├── skool-parser.ts         # DOM parsing utilities (fallback)
+│   │   ├── skool-auth.ts           # Auth token handling
+│   │   ├── jwt-parser.ts           # JWT decoding
 │   │   └── storage.ts              # Chrome storage wrapper
 │   └── types/
 │       └── index.ts
@@ -365,4 +501,18 @@ COMMIT: "Phase {X.Y}: {Description}"
 
 ## Next Step
 
-**Deploy Phase 1.1:** Create extension project structure
+### Phase 3: WebSocket Interception ⬅️ START HERE
+
+**What's Working:**
+- ✅ API interception captures conversations + messages
+- ✅ Data flows to service worker
+- ✅ Service worker pushes to 0ne-app API with buffering, dedup, retry
+- ✅ Popup shows sync stats (totalPushed, lastSyncTime, connection status)
+
+**Next Tasks:**
+1. Intercept `new WebSocket()` constructor in `main-world.ts`
+2. Intercept `WebSocket.prototype.send` and `onmessage`
+3. Filter for DM events from `wss://groups-ps.skool.com/ws`
+4. Forward real-time messages to service worker
+
+**Goal:** Capture messages instantly as they arrive via WebSocket, not just on page load/refresh.
