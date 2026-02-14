@@ -23,6 +23,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/public(.*)',
   '/api/cron(.*)',
   '/api/external(.*)', // External API uses API key auth
+  '/api/extension(.*)', // Chrome extension uses API key auth
   '/api/auth(.*)', // OAuth callbacks
   '/api/webhooks(.*)', // Webhooks from external services
 ])
