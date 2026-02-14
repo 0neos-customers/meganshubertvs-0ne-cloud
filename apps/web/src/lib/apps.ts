@@ -113,6 +113,7 @@ export function getAppNavigation(appId: AppId): AppNavItem[] {
       ]
     case 'skoolSync':
       return [
+        { name: 'Contacts', href: '/skool-sync/contacts', icon: Users },
         { name: 'Hand-Raisers', href: '/skool-sync/hand-raisers', icon: MessageSquare },
       ]
     default:

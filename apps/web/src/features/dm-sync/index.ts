@@ -135,3 +135,11 @@ export {
   type HandRaiserCampaignWithStats,
   type CreateHandRaiserInput,
 } from './hooks/use-hand-raisers'
+
+export {
+  useContactActivity,
+  type ContactActivity,
+  type ContactActivitySummary,
+  type UseContactActivityOptions,
+  type UseContactActivityReturn,
+} from './hooks/use-contact-activity'
