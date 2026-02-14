@@ -83,51 +83,72 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-skool-dms] Processing ${targetConfigs.length} users`)
 
+    // Check if server-side Skool API is available (needs cookies)
+    const hasSkoolCookies = !!process.env.SKOOL_COOKIES
+
     // Process each user's sync
     const results: Array<{
       userId: string
       result: InboundSyncResult
     }> = []
 
+    // Initialize results for all users
     for (const config of targetConfigs) {
-      try {
-        console.log(`[sync-skool-dms] Syncing user: ${config.user_id}${backfillMode ? ' (BACKFILL MODE)' : ''}`)
-        const result = await syncInboundMessages(config.user_id, {
-          backfill: backfillMode,
-          maxMessagesPerConversation: maxMessages,
-          filterUserId: filterSkoolUserId || undefined,
-        })
-        results.push({
-          userId: config.user_id,
-          result,
-        })
-      } catch (error) {
-        console.error(
-          `[sync-skool-dms] Error syncing user ${config.user_id}:`,
-          error instanceof Error ? error.message : error
-        )
-        results.push({
-          userId: config.user_id,
-          result: {
-            synced: 0,
-            skipped: 0,
-            errors: 1,
-            errorDetails: [
-              {
-                error: error instanceof Error ? error.message : String(error),
-              },
-            ],
-          },
-        })
-      }
+      results.push({
+        userId: config.user_id,
+        result: {
+          synced: 0,
+          skipped: 0,
+          errors: 0,
+          errorDetails: [],
+        },
+      })
     }
 
-    // Also sync extension-captured messages to GHL
+    // Server-side Skool API sync (only if cookies available)
+    // This fetches messages directly from Skool API - optional, may have IP issues
+    if (hasSkoolCookies) {
+      console.log('[sync-skool-dms] SKOOL_COOKIES available, running server-side sync')
+      for (const config of targetConfigs) {
+        try {
+          console.log(`[sync-skool-dms] Syncing user: ${config.user_id}${backfillMode ? ' (BACKFILL MODE)' : ''}`)
+          const result = await syncInboundMessages(config.user_id, {
+            backfill: backfillMode,
+            maxMessagesPerConversation: maxMessages,
+            filterUserId: filterSkoolUserId || undefined,
+          })
+          const userResult = results.find((r) => r.userId === config.user_id)
+          if (userResult) {
+            userResult.result.synced += result.synced
+            userResult.result.skipped += result.skipped
+            userResult.result.errors += result.errors
+            userResult.result.errorDetails.push(...result.errorDetails)
+          }
+        } catch (error) {
+          console.error(
+            `[sync-skool-dms] Error syncing user ${config.user_id}:`,
+            error instanceof Error ? error.message : error
+          )
+          const userResult = results.find((r) => r.userId === config.user_id)
+          if (userResult) {
+            userResult.result.errors++
+            userResult.result.errorDetails.push({
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
+      }
+    } else {
+      console.log('[sync-skool-dms] SKOOL_COOKIES not set, skipping server-side sync (extension-only mode)')
+    }
+
+    // Extension message sync - processes messages captured by Chrome extension
+    // This doesn't call Skool API - just pushes already-captured messages to GHL
+    console.log('[sync-skool-dms] Running extension message sync to GHL')
     for (const config of targetConfigs) {
       try {
         const extResult = await syncExtensionMessages(config.user_id)
         console.log(`[sync-skool-dms] Extension sync for ${config.user_id}: synced=${extResult.synced}, skipped=${extResult.skipped}, errors=${extResult.errors}`)
-        // Add extension results to the user's results
         const userResult = results.find((r) => r.userId === config.user_id)
         if (userResult) {
           userResult.result.synced += extResult.synced
