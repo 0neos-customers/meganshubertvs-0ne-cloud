@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@0ne/db/server'
+import { auth, clerkClient } from '@clerk/nextjs/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Clerk-User-Id',
 }
 
 /**
@@ -36,46 +37,58 @@ interface ConfirmSentResponse {
 }
 
 // =============================================
-// Auth Helper
+// Auth Helper (Supports both Clerk and API key)
 // =============================================
 
-function validateExtensionApiKey(request: NextRequest): NextResponse | null {
-  const authHeader = request.headers.get('authorization')
-  const expectedKey = process.env.EXTENSION_API_KEY
+interface AuthResult {
+  valid: boolean
+  authType: 'clerk' | 'apiKey' | null
+  userId?: string
+  skoolUserId?: string
+  error?: string
+}
 
-  if (!expectedKey) {
-    console.error('[Extension API] EXTENSION_API_KEY environment variable not set')
-    return NextResponse.json(
-      { error: 'Server configuration error' },
-      { status: 500, headers: corsHeaders }
-    )
-  }
+async function validateExtensionAuth(request: NextRequest): Promise<AuthResult> {
+  const authHeader = request.headers.get('authorization')
 
   if (!authHeader) {
-    return NextResponse.json(
-      { error: 'Missing Authorization header' },
-      { status: 401, headers: corsHeaders }
-    )
+    return { valid: false, authType: null, error: 'Missing Authorization header' }
   }
 
-  // Extract Bearer token
-  const match = authHeader.match(/^Bearer\s+(.+)$/i)
-  if (!match) {
-    return NextResponse.json(
-      { error: 'Invalid Authorization header format. Expected: Bearer {apiKey}' },
-      { status: 401, headers: corsHeaders }
-    )
+  // Check for Clerk auth first (Clerk <token>)
+  if (authHeader.startsWith('Clerk ')) {
+    try {
+      const { userId } = await auth()
+      if (userId) {
+        // Get the linked Skool user ID from Clerk metadata
+        const client = await clerkClient()
+        const user = await client.users.getUser(userId)
+        const skoolUserId = (user.publicMetadata?.skoolUserId as string) || undefined
+
+        return { valid: true, authType: 'clerk', userId, skoolUserId }
+      }
+      return { valid: false, authType: 'clerk', error: 'Invalid or expired Clerk session' }
+    } catch {
+      return { valid: false, authType: 'clerk', error: 'Failed to validate Clerk session' }
+    }
   }
 
-  const apiKey = match[1]
-  if (apiKey !== expectedKey) {
-    return NextResponse.json(
-      { error: 'Invalid API key' },
-      { status: 401, headers: corsHeaders }
-    )
+  // Check for Bearer token (API key)
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i)
+  if (bearerMatch) {
+    const expectedKey = process.env.EXTENSION_API_KEY
+    if (!expectedKey) {
+      console.error('[Extension API] EXTENSION_API_KEY environment variable not set')
+      return { valid: false, authType: 'apiKey', error: 'Server configuration error' }
+    }
+
+    if (bearerMatch[1] === expectedKey) {
+      return { valid: true, authType: 'apiKey' }
+    }
+    return { valid: false, authType: 'apiKey', error: 'Invalid API key' }
   }
 
-  return null // Valid
+  return { valid: false, authType: null, error: 'Invalid Authorization header format' }
 }
 
 // =============================================
@@ -89,9 +102,14 @@ function validateExtensionApiKey(request: NextRequest): NextResponse | null {
  * Updates the message status to 'synced' and records the Skool message ID.
  */
 export async function POST(request: NextRequest) {
-  // Validate API key
-  const authError = validateExtensionApiKey(request)
-  if (authError) return authError
+  // Validate auth (supports both Clerk and API key)
+  const authResult = await validateExtensionAuth(request)
+  if (!authResult.valid) {
+    return NextResponse.json(
+      { error: authResult.error },
+      { status: 401, headers: corsHeaders }
+    )
+  }
 
   try {
     const body: ConfirmSentRequest = await request.json()
