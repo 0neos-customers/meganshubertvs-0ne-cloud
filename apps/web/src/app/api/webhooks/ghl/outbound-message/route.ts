@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     console.log('[GHL Webhook] Raw body length:', rawBody.length)
     console.log('[GHL Webhook] Raw body preview:', rawBody.slice(0, 200))
 
-    // 2. Verify webhook signature
+    // 2. Verify webhook signature (if both signature and secret are present)
     const signature = request.headers.get('x-ghl-signature') || ''
     const webhookSecret = process.env.GHL_MARKETPLACE_WEBHOOK_SECRET
 
@@ -86,17 +86,19 @@ export async function POST(request: Request) {
       signatureLength: signature?.length || 0,
     })
 
-    // Skip signature verification if secret not configured (for initial testing)
-    if (webhookSecret && !verifyGhlWebhookSignature(rawBody, signature)) {
-      console.error('[GHL Webhook] Invalid signature')
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      )
-    }
-
-    if (!webhookSecret) {
-      console.warn('[GHL Webhook] Signature verification skipped - GHL_MARKETPLACE_WEBHOOK_SECRET not set')
+    // Only verify if BOTH signature and secret are present
+    // GHL Conversation Provider webhooks may not include signatures
+    if (signature && webhookSecret) {
+      if (!verifyGhlWebhookSignature(rawBody, signature)) {
+        console.error('[GHL Webhook] Invalid signature')
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 401 }
+        )
+      }
+      console.log('[GHL Webhook] Signature verified successfully')
+    } else {
+      console.log('[GHL Webhook] Signature verification skipped (no signature from GHL)')
     }
 
     // 3. Parse payload
