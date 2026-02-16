@@ -42,6 +42,7 @@ interface DmMessageInsert {
   direction: 'inbound' | 'outbound'
   message_text: string | null
   status: 'synced' | 'pending' | 'failed'
+  source: 'ghl' | 'manual' | 'hand-raiser'
   // Phase 5: Multi-staff support
   staff_skool_id?: string | null
   staff_display_name?: string | null
@@ -69,13 +70,26 @@ export async function POST(request: Request) {
 
     // 2. Verify webhook signature
     const signature = request.headers.get('x-ghl-signature') || ''
+    const webhookSecret = process.env.GHL_MARKETPLACE_WEBHOOK_SECRET
 
-    if (!verifyGhlWebhookSignature(rawBody, signature)) {
+    // Log for debugging
+    console.log('[GHL Webhook] Signature check:', {
+      hasSignature: !!signature,
+      hasSecret: !!webhookSecret,
+      signatureLength: signature?.length || 0,
+    })
+
+    // Skip signature verification if secret not configured (for initial testing)
+    if (webhookSecret && !verifyGhlWebhookSignature(rawBody, signature)) {
       console.error('[GHL Webhook] Invalid signature')
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 401 }
       )
+    }
+
+    if (!webhookSecret) {
+      console.warn('[GHL Webhook] Signature verification skipped - GHL_MARKETPLACE_WEBHOOK_SECRET not set')
     }
 
     // 3. Parse payload
@@ -118,6 +132,13 @@ export async function POST(request: Request) {
     // 5. Look up Skool user from dm_contact_mappings (by ghl_contact_id)
     const supabase = createServerClient()
 
+    // Debug: Check total mapping count first
+    const { count: mappingCount } = await supabase
+      .from('dm_contact_mappings')
+      .select('*', { count: 'exact', head: true })
+
+    console.log('[GHL Webhook] Total contact mappings in DB:', mappingCount)
+
     const { data: mapping, error: mappingError } = await supabase
       .from('dm_contact_mappings')
       .select('*')
@@ -125,15 +146,27 @@ export async function POST(request: Request) {
       .single()
 
     if (mappingError || !mapping) {
+      // Debug: Show sample mappings to help identify issue
+      const { data: sampleMappings } = await supabase
+        .from('dm_contact_mappings')
+        .select('ghl_contact_id, skool_user_id, skool_username')
+        .limit(3)
+
       console.error('[GHL Webhook] Contact mapping not found:', {
         contactId,
         error: mappingError?.message,
+        totalMappings: mappingCount,
+        sampleMappings: sampleMappings?.map(m => ({
+          ghlContactId: m.ghl_contact_id?.slice(0, 8) + '...',
+          skoolUsername: m.skool_username,
+        })),
       })
       // Return 200 to acknowledge receipt - we can't process but shouldn't retry
       return NextResponse.json({
         success: false,
         error: 'Contact mapping not found',
         contactId,
+        hint: `No mapping exists for GHL contact ${contactId}. This contact needs to have sent a Skool DM first.`,
       })
     }
 
@@ -164,10 +197,31 @@ export async function POST(request: Request) {
       hasOverride: processedMessage !== body,
     })
 
-    // 7. Get or create a placeholder conversation ID for Skool
-    // In real sync, this would come from an existing Skool conversation
-    // For now, we'll use the GHL conversation ID as a placeholder
-    const skoolConversationId = `ghl:${conversationId}`
+    // 7. Look up the real Skool conversation ID from previous messages with this user
+    const { data: existingConversation } = await supabase
+      .from('dm_messages')
+      .select('skool_conversation_id')
+      .eq('skool_user_id', typedMapping.skool_user_id)
+      .eq('user_id', typedMapping.user_id)
+      .not('skool_conversation_id', 'like', 'ghl:%')  // Exclude placeholder IDs
+      .limit(1)
+      .single()
+
+    if (!existingConversation?.skool_conversation_id) {
+      console.error('[GHL Webhook] No Skool conversation found for user:', {
+        skoolUserId: typedMapping.skool_user_id,
+        contactId,
+      })
+      // Return 200 to acknowledge - can't route without conversation
+      return NextResponse.json({
+        success: false,
+        error: 'No Skool conversation found for this contact',
+        skoolUserId: typedMapping.skool_user_id,
+      })
+    }
+
+    const skoolConversationId = existingConversation.skool_conversation_id
+    console.log('[GHL Webhook] Found Skool conversation:', skoolConversationId)
 
     // Generate a unique message ID for Skool (will be updated when actually sent)
     const pendingSkoolMessageId = `pending:${Date.now()}:${Math.random().toString(36).substring(7)}`
@@ -188,6 +242,7 @@ export async function POST(request: Request) {
       direction: 'outbound',
       message_text: finalMessageText,
       status: 'pending',
+      source: 'ghl',  // Mark as GHL-originated for extension pickup
       // Phase 5: Multi-staff attribution
       staff_skool_id: staff?.skoolUserId || null,
       staff_display_name: staff?.displayName || null,

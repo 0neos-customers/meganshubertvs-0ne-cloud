@@ -161,15 +161,18 @@ export async function GET(request: NextRequest) {
     //
     // Phase 5: Also filter by staff_skool_id for multi-staff routing
     // Messages can be routed to specific staff via staff_skool_id field
+    // Get current time minus 24 hours for GHL message filter
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
     const { data: pendingMessages, error } = await supabase
       .from('dm_messages')
-      .select('id, skool_conversation_id, skool_user_id, message_text, created_at, staff_skool_id, staff_display_name')
+      .select('id, skool_conversation_id, skool_user_id, message_text, created_at, staff_skool_id, staff_display_name, source')
       .or(`user_id.eq.${staffSkoolId},staff_skool_id.eq.${staffSkoolId}`)
       .eq('direction', 'outbound')
       .eq('status', 'pending')
-      // SAFETY: Only pick up manual messages (from inbox) for now
-      // TODO: Re-enable GHL/hand-raiser once we verify the data
-      .eq('source', 'manual')
+      // Allow both manual (inbox) and ghl messages
+      // GHL messages are filtered to last 24 hours to avoid sending old backfill data
+      .or(`source.eq.manual,and(source.eq.ghl,created_at.gte.${oneDayAgo})`)
       .order('created_at', { ascending: true })
       .limit(limit)
 
