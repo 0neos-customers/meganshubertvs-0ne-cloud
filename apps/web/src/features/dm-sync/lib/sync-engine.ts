@@ -19,6 +19,7 @@ import type {
   HandRaiserCampaignRow,
 } from '../types'
 import { SkoolDmClient, createSkoolDmClient } from './skool-dm-client'
+import { getSkoolCookies } from '@/lib/skool-cookie-resolver'
 import { ContactMapper, findOrCreateGhlContact } from './contact-mapper'
 import {
   GhlConversationClient,
@@ -182,8 +183,11 @@ export async function syncInboundMessages(
       return result
     }
 
+    // Resolve cookies from DB (extension-pushed) or env var fallback
+    const cookies = await getSkoolCookies(userId)
+
     // Initialize clients
-    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug)
+    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug, cookies)
 
     // Get stored tokens from database (falls back to env vars)
     const storedTokens = await getStoredTokens(userId)
@@ -513,8 +517,11 @@ export async function sendPendingMessages(
       return result
     }
 
+    // Resolve cookies from DB (extension-pushed) or env var fallback
+    const cookies = await getSkoolCookies(userId)
+
     // Initialize Skool client
-    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug)
+    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug, cookies)
 
     // Get pending outbound messages
     // Exclude hand-raiser messages - those are sent via extension, not cloud
@@ -994,8 +1001,11 @@ export async function processHandRaisers(
 
     console.log(`[Sync Engine] Found ${campaigns.length} active campaigns`)
 
+    // Resolve cookies from DB (extension-pushed) or env var fallback
+    const cookies = await getSkoolCookies(userId)
+
     // Initialize Skool client
-    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug)
+    const skoolClient = createSkoolDmClient(syncConfig.skool_community_slug, cookies)
 
     // Process each campaign
     for (const campaign of campaigns as HandRaiserCampaignRow[]) {
@@ -1580,6 +1590,9 @@ export async function createSyncEngineFromConfig(
     throw new Error(`Sync config not found: ${configId}`)
   }
 
+  // Resolve cookies from DB (extension-pushed) or env var fallback
+  const cookies = await getSkoolCookies(config.user_id)
+
   return new DmSyncEngine({
     config: {
       id: config.id,
@@ -1590,7 +1603,7 @@ export async function createSyncEngineFromConfig(
       createdAt: new Date(config.created_at),
       updatedAt: new Date(config.updated_at),
     },
-    skoolCookies: process.env.SKOOL_COOKIES!,
+    skoolCookies: cookies,
     ghlApiKey: process.env.GHL_API_KEY!,
   })
 }

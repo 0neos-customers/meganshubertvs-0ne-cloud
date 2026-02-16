@@ -6,6 +6,7 @@
  */
 
 import { SKOOL_API, SKOOL_ENDPOINTS, SYNC_CONFIG } from './config'
+import { getSkoolCookiesForDefaultStaff } from '@/lib/skool-cookie-resolver'
 import type {
   SkoolApiMember,
   SkoolApiChatChannel,
@@ -552,13 +553,25 @@ export class SkoolClient {
 let clientInstance: SkoolClient | null = null
 
 /**
- * Get the shared Skool client instance
+ * Get the shared Skool client instance (sync - uses env var only)
  */
 export function getSkoolClient(): SkoolClient {
   if (!clientInstance) {
     clientInstance = new SkoolClient()
   }
   return clientInstance
+}
+
+/**
+ * Get a Skool client with cookies resolved from DB first, then env var fallback.
+ * Preferred over getSkoolClient() since it doesn't require redeploys for fresh cookies.
+ */
+export async function getSkoolClientAsync(): Promise<SkoolClient> {
+  const cookies = await getSkoolCookiesForDefaultStaff()
+  if (cookies) {
+    return new SkoolClient(cookies)
+  }
+  return getSkoolClient()
 }
 
 /**

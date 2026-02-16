@@ -18,7 +18,8 @@
  */
 
 import { SKOOL_API } from './config'
-import { getSkoolClient } from './skool-client'
+import { getSkoolClientAsync } from './skool-client'
+import { getSkoolCookiesForDefaultStaff } from '@/lib/skool-cookie-resolver'
 import type {
   CreatePostParams,
   CreatePostResult,
@@ -39,7 +40,7 @@ export type { CreatePostParams, CreatePostResult, UploadResult, UploadError }
  */
 async function getGroupId(groupSlug: string): Promise<string | null> {
   try {
-    const client = getSkoolClient()
+    const client = await getSkoolClientAsync()
     const groups = await client.getGroups()
     const group = groups.find((g) => g.slug === groupSlug)
     return group?.id || null
@@ -65,9 +66,11 @@ async function fetchWithAuth(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const cookies = process.env.SKOOL_COOKIES || ''
+  // Resolve cookies: DB first (extension-pushed), then env var fallback
+  const dbCookies = await getSkoolCookiesForDefaultStaff()
+  const cookies = dbCookies || process.env.SKOOL_COOKIES || ''
   if (!cookies) {
-    throw new Error('SKOOL_COOKIES environment variable is not set')
+    throw new Error('No Skool cookies available (DB empty, SKOOL_COOKIES env not set)')
   }
 
   // Extract WAF token for POST requests

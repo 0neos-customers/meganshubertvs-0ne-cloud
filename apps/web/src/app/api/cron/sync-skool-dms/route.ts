@@ -16,6 +16,7 @@ import {
   type InboundSyncResult,
 } from '@/features/dm-sync'
 import { SyncLogger } from '@/lib/sync-log'
+import { hasSkoolCookies } from '@/lib/skool-cookie-resolver'
 
 export const maxDuration = 300 // 5 minutes max for sync
 
@@ -83,9 +84,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`[sync-skool-dms] Processing ${targetConfigs.length} users`)
 
-    // Check if server-side Skool API is available (needs cookies)
-    const hasSkoolCookies = !!process.env.SKOOL_COOKIES
-
     // Process each user's sync
     const results: Array<{
       userId: string
@@ -105,41 +103,41 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Server-side Skool API sync (only if cookies available)
-    // This fetches messages directly from Skool API - optional, may have IP issues
-    if (hasSkoolCookies) {
-      console.log('[sync-skool-dms] SKOOL_COOKIES available, running server-side sync')
-      for (const config of targetConfigs) {
-        try {
-          console.log(`[sync-skool-dms] Syncing user: ${config.user_id}${backfillMode ? ' (BACKFILL MODE)' : ''}`)
-          const result = await syncInboundMessages(config.user_id, {
-            backfill: backfillMode,
-            maxMessagesPerConversation: maxMessages,
-            filterUserId: filterSkoolUserId || undefined,
+    // Server-side Skool API sync (per-user cookie resolution: DB first, then env var)
+    for (const config of targetConfigs) {
+      const userHasCookies = await hasSkoolCookies(config.user_id)
+      if (!userHasCookies) {
+        console.log(`[sync-skool-dms] No cookies available for ${config.user_id}, skipping server-side sync`)
+        continue
+      }
+
+      try {
+        console.log(`[sync-skool-dms] Syncing user: ${config.user_id}${backfillMode ? ' (BACKFILL MODE)' : ''}`)
+        const result = await syncInboundMessages(config.user_id, {
+          backfill: backfillMode,
+          maxMessagesPerConversation: maxMessages,
+          filterUserId: filterSkoolUserId || undefined,
+        })
+        const userResult = results.find((r) => r.userId === config.user_id)
+        if (userResult) {
+          userResult.result.synced += result.synced
+          userResult.result.skipped += result.skipped
+          userResult.result.errors += result.errors
+          userResult.result.errorDetails.push(...result.errorDetails)
+        }
+      } catch (error) {
+        console.error(
+          `[sync-skool-dms] Error syncing user ${config.user_id}:`,
+          error instanceof Error ? error.message : error
+        )
+        const userResult = results.find((r) => r.userId === config.user_id)
+        if (userResult) {
+          userResult.result.errors++
+          userResult.result.errorDetails.push({
+            error: error instanceof Error ? error.message : String(error),
           })
-          const userResult = results.find((r) => r.userId === config.user_id)
-          if (userResult) {
-            userResult.result.synced += result.synced
-            userResult.result.skipped += result.skipped
-            userResult.result.errors += result.errors
-            userResult.result.errorDetails.push(...result.errorDetails)
-          }
-        } catch (error) {
-          console.error(
-            `[sync-skool-dms] Error syncing user ${config.user_id}:`,
-            error instanceof Error ? error.message : error
-          )
-          const userResult = results.find((r) => r.userId === config.user_id)
-          if (userResult) {
-            userResult.result.errors++
-            userResult.result.errorDetails.push({
-              error: error instanceof Error ? error.message : String(error),
-            })
-          }
         }
       }
-    } else {
-      console.log('[sync-skool-dms] SKOOL_COOKIES not set, skipping server-side sync (extension-only mode)')
     }
 
     // Extension message sync - processes messages captured by Chrome extension
