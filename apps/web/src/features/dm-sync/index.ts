@@ -45,6 +45,13 @@ export type {
   GhlContact,
   GhlConversation,
   GhlMessage,
+  // Inbox conversation types
+  InboxConversationParticipant,
+  InboxConversationLastMessage,
+  InboxConversation,
+  InboxConversationsSummary,
+  InboxMessage,
+  InboxConversationDetail,
 } from './types'
 
 // =============================================================================
@@ -165,6 +172,33 @@ export {
   type UseContactActivityReturn,
 } from './hooks/use-contact-activity'
 
+export {
+  useRawMessages,
+  type RawMessage,
+  type RawMessagesSummary,
+  type RawMessagesPagination,
+  type UseRawMessagesOptions,
+  type UseRawMessagesReturn,
+} from './hooks/use-raw-messages'
+
+export {
+  useConversations,
+  type Conversation,
+  type ConversationParticipant,
+  type ConversationLastMessage,
+  type ConversationsSummary,
+  type UseConversationsOptions,
+  type UseConversationsReturn,
+} from './hooks/use-conversations'
+
+export {
+  useConversationDetail,
+  type ConversationMessage,
+  type ConversationDetailParticipant,
+  type ConversationDetail as ConversationDetailData,
+  type UseConversationDetailReturn,
+} from './hooks/use-conversation-detail'
+
 // =============================================================================
 // STAFF USERS (Phase 5)
 // =============================================================================
@@ -196,3 +230,7 @@ export {
 // =============================================================================
 
 export { StaffUsersManager } from './components/StaffUsersManager'
+export { ConversationList } from './components/ConversationList'
+export { ConversationItem } from './components/ConversationItem'
+export { ConversationDetail } from './components/ConversationDetail'
+export { MessageBubble } from './components/MessageBubble'

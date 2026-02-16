@@ -3,6 +3,7 @@ import {
   GitBranch,
   Users,
   MessageSquare,
+  Inbox,
   Link2,
   BarChart3,
   Bell,
@@ -113,8 +114,10 @@ export function getAppNavigation(appId: AppId): AppNavItem[] {
       ]
     case 'skoolSync':
       return [
+        { name: 'Inbox', href: '/skool-sync/inbox', icon: Inbox },
+        { name: 'Messages', href: '/skool-sync/messages', icon: MessageSquare },
         { name: 'Contacts', href: '/skool-sync/contacts', icon: Users },
-        { name: 'Hand-Raisers', href: '/skool-sync/hand-raisers', icon: MessageSquare },
+        { name: 'Hand-Raisers', href: '/skool-sync/hand-raisers', icon: Megaphone },
       ]
     default:
       return []

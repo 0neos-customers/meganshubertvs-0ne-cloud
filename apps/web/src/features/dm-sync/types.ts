@@ -378,3 +378,67 @@ export interface HandRaiserResult {
   errors: number
   errorDetails: Array<{ campaignId?: string; error: string }>
 }
+
+// =============================================================================
+// INBOX CONVERSATION TYPES (for Skool Inbox UI)
+// =============================================================================
+
+/**
+ * Participant info for a conversation
+ */
+export interface InboxConversationParticipant {
+  skool_user_id: string
+  display_name: string | null
+  username: string | null
+  ghl_contact_id?: string | null
+}
+
+/**
+ * Last message preview for a conversation
+ */
+export interface InboxConversationLastMessage {
+  text: string | null
+  direction: 'inbound' | 'outbound'
+  created_at: string
+}
+
+/**
+ * Conversation summary for list view
+ */
+export interface InboxConversation {
+  conversation_id: string
+  participant: InboxConversationParticipant
+  last_message: InboxConversationLastMessage
+  message_count: number
+  pending_count: number
+  synced_count: number
+}
+
+/**
+ * Summary statistics for all conversations
+ */
+export interface InboxConversationsSummary {
+  total_conversations: number
+  total_pending: number
+}
+
+/**
+ * Message in a conversation thread
+ */
+export interface InboxMessage {
+  id: string
+  direction: 'inbound' | 'outbound'
+  message_text: string | null
+  sender_name: string | null
+  status: 'synced' | 'pending' | 'failed'
+  created_at: string
+}
+
+/**
+ * Full conversation detail
+ */
+export interface InboxConversationDetail {
+  id: string
+  participant: InboxConversationParticipant
+  message_count: number
+}
