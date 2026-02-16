@@ -97,9 +97,14 @@ export async function GET(
       .eq('skool_user_id', participantUserId)
       .single()
 
-    // Get sender_name from messages as fallback
-    const senderName = messages.find((m) => m.direction === 'inbound')?.sender_name ||
-      messages[0]?.sender_name
+    // Get sender_name from messages as fallback - look for a valid name (not "Unknown")
+    const inboundWithName = messages.find(
+      (m) => m.direction === 'inbound' && m.sender_name && m.sender_name !== 'Unknown'
+    )
+    const anyWithName = messages.find(
+      (m) => m.sender_name && m.sender_name !== 'Unknown'
+    )
+    const senderName = inboundWithName?.sender_name || anyWithName?.sender_name || null
 
     const participant: ConversationParticipant = {
       skool_user_id: participantUserId,

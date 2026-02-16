@@ -135,9 +135,16 @@ export async function GET(request: NextRequest) {
     // Build conversation list with participant info
     let conversations: Conversation[] = Array.from(conversationMap.values()).map((conv) => {
       const userInfo = userMap.get(conv.skool_user_id)
-      // Try sender_name from an INBOUND message (the participant's message, not ours)
-      const inboundMessage = conv.messages.find((m) => m.direction === 'inbound')
-      const senderName = inboundMessage?.sender_name || conv.last_message?.sender_name
+      // Try sender_name from an INBOUND message that has a valid name (not "Unknown")
+      // Look through all inbound messages to find one with a real name
+      const inboundMessageWithName = conv.messages.find(
+        (m) => m.direction === 'inbound' && m.sender_name && m.sender_name !== 'Unknown'
+      )
+      // Fallback to any message with a valid sender_name
+      const anyMessageWithName = conv.messages.find(
+        (m) => m.sender_name && m.sender_name !== 'Unknown'
+      )
+      const senderName = inboundMessageWithName?.sender_name || anyMessageWithName?.sender_name || null
 
       return {
         conversation_id: conv.conversation_id,
