@@ -19,7 +19,7 @@ import { MessageBubble } from './MessageBubble'
 
 interface ConversationDetailProps {
   conversationId: string
-  staffSkoolId: string // Jimmy's Skool ID for sending
+  staffSkoolId?: string // Jimmy's Skool ID for sending (optional - view-only if not set)
 }
 
 // =============================================================================
@@ -48,7 +48,7 @@ export function ConversationDetail({ conversationId, staffSkoolId }: Conversatio
   }, [messages])
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isSending) return
+    if (!inputValue.trim() || isSending || !staffSkoolId) return
 
     setSendError(null)
     const messageText = inputValue.trim()
@@ -61,6 +61,8 @@ export function ConversationDetail({ conversationId, staffSkoolId }: Conversatio
       setInputValue(messageText) // Restore input on error
     }
   }
+
+  const canSend = !!staffSkoolId
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -166,30 +168,40 @@ export function ConversationDetail({ conversationId, staffSkoolId }: Conversatio
 
       {/* Input Area */}
       <div className="p-4 border-t bg-white">
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Type a message..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isSending}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isSending}
-            className="bg-[#FF692D] hover:bg-[#E55A20] text-white"
-          >
-            {isSending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Messages are queued and sent via the Chrome extension
-        </p>
+        {canSend ? (
+          <>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Type a message..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSending}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isSending}
+                className="bg-[#FF692D] hover:bg-[#E55A20] text-white"
+              >
+                {isSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Messages are queued and sent via the Chrome extension
+            </p>
+          </>
+        ) : (
+          <div className="text-center py-2">
+            <p className="text-sm text-muted-foreground">
+              Configure a default staff user in Settings to enable sending
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -80,21 +80,11 @@ export default function InboxPage() {
 
       {/* Right Panel: Conversation Detail or Empty State */}
       <div className="flex-1 flex flex-col">
-        {selectedId && staffSkoolId ? (
+        {selectedId ? (
           <ConversationDetail
             conversationId={selectedId}
-            staffSkoolId={staffSkoolId}
+            staffSkoolId={staffSkoolId || undefined}
           />
-        ) : selectedId && !staffSkoolId ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-8">
-            <div className="rounded-full bg-yellow-100 p-4 mb-4">
-              <Inbox className="h-8 w-8 text-yellow-600" />
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Configuration Required</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Please configure a default staff user in Settings → Staff Users to enable sending messages.
-            </p>
-          </div>
         ) : (
           <EmptyState />
         )}
