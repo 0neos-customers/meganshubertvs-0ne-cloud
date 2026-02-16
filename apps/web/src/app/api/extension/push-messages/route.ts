@@ -229,6 +229,8 @@ export async function POST(request: NextRequest) {
           message_text: msg.content,
           status: 'pending', // Extension messages need GHL sync
           synced_at: null, // Will be set when pushed to GHL
+          // Use original message timestamp, not insertion time
+          created_at: msg.timestamp || new Date().toISOString(),
           // ghl_message_id will be null until synced to GHL
           // Phase 5: Multi-staff attribution
           staff_skool_id: msg.isOwnMessage ? staffSkoolId : null,
