@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   syncExtensionMessages,
   getEnabledSyncConfigs,
-  type InboundSyncResult,
+  type ExtensionSyncResult,
 } from '@/features/dm-sync'
 import { SyncLogger } from '@/lib/sync-log'
 
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     // Process each user's sync
     const results: Array<{
       userId: string
-      result: InboundSyncResult
+      result: ExtensionSyncResult
     }> = []
 
     // Initialize results for all users
