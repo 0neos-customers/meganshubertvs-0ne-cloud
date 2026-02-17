@@ -33,7 +33,7 @@ ALTER TABLE notification_preferences RENAME COLUMN user_id TO clerk_user_id;
 -- These store the Skool user ID of the staff member who owns the data
 -- =============================================
 
-ALTER TABLE skool_members RENAME COLUMN user_id TO staff_skool_id;
+-- skool_members already has no user_id column (uses skool_user_id natively)
 ALTER TABLE skool_kpis RENAME COLUMN user_id TO staff_skool_id;
 ALTER TABLE skool_analytics RENAME COLUMN user_id TO staff_skool_id;
 
@@ -52,7 +52,6 @@ COMMENT ON COLUMN staff_users.clerk_user_id IS 'Clerk authentication ID (user_xx
 COMMENT ON COLUMN notification_preferences.clerk_user_id IS 'Clerk authentication ID (user_xxx) - the 0ne-app account owner';
 
 -- Skool data tables
-COMMENT ON COLUMN skool_members.staff_skool_id IS 'Skool user ID of the staff member who owns/manages this data';
 COMMENT ON COLUMN skool_kpis.staff_skool_id IS 'Skool user ID of the staff member who owns/manages this data';
 COMMENT ON COLUMN skool_analytics.staff_skool_id IS 'Skool user ID of the staff member who owns/manages this data';
 
@@ -81,7 +80,6 @@ COMMIT;
 -- ALTER TABLE dm_hand_raiser_campaigns RENAME COLUMN clerk_user_id TO user_id;
 -- ALTER TABLE staff_users RENAME COLUMN clerk_user_id TO user_id;
 -- ALTER TABLE notification_preferences RENAME COLUMN clerk_user_id TO user_id;
--- ALTER TABLE skool_members RENAME COLUMN staff_skool_id TO user_id;
 -- ALTER TABLE skool_kpis RENAME COLUMN staff_skool_id TO user_id;
 -- ALTER TABLE skool_analytics RENAME COLUMN staff_skool_id TO user_id;
 -- COMMIT;
