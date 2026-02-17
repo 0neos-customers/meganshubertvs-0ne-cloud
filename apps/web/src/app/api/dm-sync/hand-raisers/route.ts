@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { createServerClient } from '@0ne/db/server'
 
 export const dynamic = 'force-dynamic'
@@ -99,6 +100,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const supabase = createServerClient()
     const body = await request.json()
 
@@ -113,6 +119,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('dm_hand_raiser_campaigns')
       .insert({
+        user_id: userId,
         post_url: body.post_url,
         skool_post_id: body.skool_post_id || null,
         keyword_filter: body.keyword_filter || null,

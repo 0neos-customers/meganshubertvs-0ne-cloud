@@ -47,10 +47,11 @@ export default function HandRaisersPage() {
   const handleSave = async (data: HandRaiserFormData) => {
     setIsSaving(true)
     try {
+      let result: { error?: string }
       if (data.id) {
-        await updateHandRaiser(data.id, data)
+        result = await updateHandRaiser(data.id, data)
       } else {
-        await createHandRaiser({
+        result = await createHandRaiser({
           post_url: data.post_url,
           dm_template: data.dm_template,
           keyword_filter: data.keyword_filter || null,
@@ -58,8 +59,10 @@ export default function HandRaisersPage() {
           is_active: data.is_active,
         })
       }
+      if (result.error) {
+        throw new Error(result.error)
+      }
       refresh()
-      setDialogOpen(false)
     } finally {
       setIsSaving(false)
     }
