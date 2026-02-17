@@ -155,17 +155,15 @@ export async function POST(request: NextRequest) {
     for (const member of members) {
       try {
         const memberRow: Record<string, unknown> = {
-          staff_skool_id: staffSkoolId,
-          group_id: groupId,
+          group_slug: groupId,
           skool_user_id: member.skoolUserId,
-          name: member.name || null,
+          display_name: member.name || null,
           email: member.email || null,
-          avatar_url: member.avatarUrl || null,
+          profile_image: member.avatarUrl || null,
           level: member.level ?? null,
           points: member.points ?? null,
-          joined_at: member.joinedAt || null,
-          last_seen_at: member.lastSeenAt || null,
-          synced_at: new Date().toISOString(),
+          member_since: member.joinedAt || null,
+          last_online: member.lastSeenAt || null,
         }
 
         // Add additional fields if present (Phase 6)
@@ -173,12 +171,11 @@ export async function POST(request: NextRequest) {
         if (member.bio) memberRow.bio = member.bio
         if (member.location) memberRow.location = member.location
         if (member.role) memberRow.role = member.role
-        if (member.questionsAndAnswers) memberRow.questions_and_answers = JSON.stringify(member.questionsAndAnswers)
 
         const { error } = await supabase
           .from('skool_members')
           .upsert(memberRow, {
-            onConflict: 'staff_skool_id,group_id,skool_user_id',
+            onConflict: 'skool_user_id',
           })
 
         if (error) {
