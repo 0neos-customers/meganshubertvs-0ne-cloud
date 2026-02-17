@@ -369,7 +369,7 @@ export async function POST(request: NextRequest) {
             group_slug: m.groupId,
             date: dateKey,
             visitors: m.metricValue,
-            conversion_rate: convRate != null ? Math.round(convRate * 100) / 100 : null,
+            conversion_rate: convRate != null ? Math.round(convRate * 10000) / 100 : null,
           }, {
             onConflict: 'group_slug,date',
           })
