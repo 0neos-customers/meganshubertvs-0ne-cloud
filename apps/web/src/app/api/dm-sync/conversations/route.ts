@@ -87,8 +87,21 @@ export async function GET(request: NextRequest) {
       .select('skool_user_id, skool_username, skool_display_name')
       .in('skool_user_id', skoolUserIds)
 
-    // Build user lookup map
+    // Also check skool_members table as fallback for names
+    const { data: members } = await supabase
+      .from('skool_members')
+      .select('skool_user_id, display_name, skool_username')
+      .in('skool_user_id', skoolUserIds)
+
+    // Build user lookup map (dm_contact_mappings first, then skool_members fallback)
     const userMap = new Map<string, { username: string | null; display_name: string | null }>()
+    members?.forEach((m) => {
+      userMap.set(m.skool_user_id, {
+        username: m.skool_username,
+        display_name: m.display_name,
+      })
+    })
+    // dm_contact_mappings overwrites skool_members (higher priority)
     mappings?.forEach((m) => {
       userMap.set(m.skool_user_id, {
         username: m.skool_username,
