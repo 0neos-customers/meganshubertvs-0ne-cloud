@@ -109,10 +109,12 @@ function MatchMethodBadge({ method }: { method: ContactActivity['match_method'] 
     name: { className: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Name' },
     synthetic: { className: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Synthetic' },
     manual: { className: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Manual' },
+    skool_members: { className: 'bg-teal-100 text-teal-800 border-teal-200', label: 'Members' },
     no_email: { className: 'bg-gray-100 text-gray-600', label: 'No Email' },
   }
 
-  const config = method ? variants[method] : { className: 'bg-gray-100 text-gray-600', label: '-' }
+  const fallback = { className: 'bg-gray-100 text-gray-600', label: method || '-' }
+  const config = (method && variants[method]) || fallback
 
   return <Badge className={config.className}>{config.label}</Badge>
 }
