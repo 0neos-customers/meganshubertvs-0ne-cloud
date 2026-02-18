@@ -2,7 +2,7 @@
 
 > 100% contact matching with matched/unmatched tabs, manual GHL matching, and synthetic contact creation.
 
-**Status:** In Progress
+**Status:** Code Complete (pending migration run + testing)
 **Started:** 2026-02-18
 
 ---
@@ -11,10 +11,10 @@
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| Phase 1 | Schema migration + type updates | [ ] |
-| Phase 2 | Contact discovery + mapper + hand-raiser fix | [ ] |
-| Phase 3 | API endpoints (GET filters, PATCH manual match, POST synthetic) | [ ] |
-| Phase 4 | Frontend UI (tabs, edit dialog, synthetic button, inbox deep link) | [ ] |
+| Phase 1 | Schema migration + type updates | [x] `20478c0` |
+| Phase 2 | Contact discovery + mapper + hand-raiser fix | [x] `994e506` |
+| Phase 3 | API endpoints (GET filters, PATCH manual match, POST synthetic) | [x] `a00aa3a` |
+| Phase 4 | Frontend UI (tabs, edit dialog, synthetic button, inbox deep link) | [x] `a3aed0e` |
 
 ---
 
