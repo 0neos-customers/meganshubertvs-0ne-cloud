@@ -58,11 +58,12 @@ function normalizeSurveyAnswers(raw: unknown): unknown[] | null {
 }
 
 /** Paginated fetch — gets ALL rows matching a query */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchAllRows<T>(
   supabase: ReturnType<typeof createServerClient>,
   table: string,
   select: string,
-  filters?: (query: ReturnType<ReturnType<typeof createServerClient>['from']>['select']) => ReturnType<ReturnType<typeof createServerClient>['from']>['select']>
+  filters?: (query: any) => any
 ): Promise<T[]> {
   const PAGE_SIZE = 1000
   const allRows: T[] = []
