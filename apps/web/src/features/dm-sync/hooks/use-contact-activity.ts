@@ -7,6 +7,12 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 /**
  * Contact activity data returned from the API
  */
+export interface ContactChannelInfo {
+  staff_skool_id: string
+  skool_channel_id: string
+  staff_display_name: string | null
+}
+
 export interface ContactActivity {
   id: string
   skool_user_id: string
@@ -19,6 +25,7 @@ export interface ContactActivity {
   contact_type: 'community_member' | 'dm_contact' | 'unknown' | null
   created_at: string
   skool_conversation_id: string | null
+  channels: ContactChannelInfo[]
   stats: {
     inbound_count: number
     outbound_count: number

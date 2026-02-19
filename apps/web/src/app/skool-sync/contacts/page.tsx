@@ -218,8 +218,38 @@ function ContactActions({
 }) {
   const isMatched = !!contact.ghl_contact_id
 
+  const channelId = contact.channels?.[0]?.skool_channel_id
+  const channelCount = contact.channels?.length || 0
+  const channelTooltip = channelCount > 1
+    ? `${channelCount} staff channels`
+    : channelCount === 1
+      ? `DM via ${contact.channels[0].staff_display_name || 'staff'}`
+      : 'No DM channel'
+
   return (
     <div className="flex items-center justify-end gap-1.5">
+      {/* Skool DM deep link */}
+      {channelId ? (
+        <a
+          href={`https://www.skool.com/${contact.skool_community_slug || 'fruitful'}/-/dm?channel=${channelId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center h-7 w-7 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 relative"
+          title={channelTooltip}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          {channelCount > 1 && (
+            <span className="absolute -top-0.5 -right-0.5 bg-blue-600 text-white text-[8px] rounded-full h-3 w-3 flex items-center justify-center">
+              {channelCount}
+            </span>
+          )}
+        </a>
+      ) : (
+        <span className="inline-flex items-center justify-center h-7 w-7 text-muted-foreground/30" title={channelTooltip}>
+          <MessageSquare className="h-3.5 w-3.5" />
+        </span>
+      )}
+
       {/* Inbox deep link */}
       {contact.skool_conversation_id ? (
         <a
