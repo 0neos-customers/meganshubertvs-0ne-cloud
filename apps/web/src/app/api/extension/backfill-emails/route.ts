@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
       names_cleaned: 0,
       usernames_cleaned: 0,
       junk_deleted: 0,
+      slug_enriched: 0,
+      unresolvable_deleted: 0,
     }
 
     // =========================================================================
@@ -289,7 +291,16 @@ export async function POST(request: NextRequest) {
     // and skool_members.
     // =========================================================================
 
+    // Valid Skool user ID = lowercase slug with hyphens or a numeric ID (6+ digits)
+    // Rejects: short numbers like "2025", single chars, anything with spaces/special chars
     const VALID_SKOOL_ID = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
+    const isValidSkoolId = (id: string): boolean => {
+      if (id.length < 3) return false
+      if (!VALID_SKOOL_ID.test(id)) return false
+      // Pure numeric IDs must be 6+ digits (real Skool numeric IDs are 7-8+)
+      if (/^\d+$/.test(id) && id.length < 6) return false
+      return true
+    }
 
     // Check dm_contact_mappings
     const allMappingsForValidation = await fetchAllRows<{
@@ -298,7 +309,7 @@ export async function POST(request: NextRequest) {
     }>(supabase, 'dm_contact_mappings', 'id, skool_user_id')
 
     const invalidMappings = allMappingsForValidation.filter(
-      (m) => !VALID_SKOOL_ID.test(m.skool_user_id)
+      (m) => !isValidSkoolId(m.skool_user_id)
     )
 
     // Check skool_members
@@ -307,7 +318,7 @@ export async function POST(request: NextRequest) {
     }>(supabase, 'skool_members', 'skool_user_id')
 
     const invalidMembers = allMembersForValidation.filter(
-      (m) => !VALID_SKOOL_ID.test(m.skool_user_id)
+      (m) => !isValidSkoolId(m.skool_user_id)
     )
 
     // Combine all invalid user IDs for cascade delete
@@ -349,6 +360,64 @@ export async function POST(request: NextRequest) {
       stats.junk_deleted = invalidMappings.length + invalidMembers.length
       console.log(`[Backfill] Deleted ${invalidMappings.length} mappings + ${invalidMembers.length} members with invalid skool_user_id format`)
     }
+
+    // =========================================================================
+    // Step 2e: Enrich contacts missing username/display_name
+    //
+    // For DM contacts, skool_user_id IS often the user's slug (e.g. "keith-sacco-6948").
+    // If skool_username is null but skool_user_id contains a hyphen (slug format),
+    // derive username and display name from it.
+    // Also delete truly unresolvable contacts (no username derivable, no messages,
+    // no email, no phone, no GHL match).
+    // =========================================================================
+
+    const mappingsNeedingEnrichment = await fetchAllRows<{
+      id: string
+      skool_user_id: string
+      skool_username: string | null
+      skool_display_name: string | null
+      email: string | null
+      phone: string | null
+      ghl_contact_id: string | null
+    }>(supabase, 'dm_contact_mappings', 'id, skool_user_id, skool_username, skool_display_name, email, phone, ghl_contact_id', (q) =>
+      q.is('skool_username', null)
+    )
+
+    for (const mapping of mappingsNeedingEnrichment) {
+      const uid = mapping.skool_user_id
+
+      // If the skool_user_id looks like a slug (contains hyphen), use it as username
+      if (uid.includes('-') && isValidSkoolId(uid)) {
+        // Derive display name: "keith-sacco-6948" → "Keith Sacco"
+        const parts = uid.replace(/-\d+$/, '').split('-')
+        const displayName = parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+
+        await supabase
+          .from('dm_contact_mappings')
+          .update({
+            skool_username: uid,
+            skool_display_name: mapping.skool_display_name || displayName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', mapping.id)
+        stats.slug_enriched++
+      } else if (!mapping.email && !mapping.phone && !mapping.ghl_contact_id) {
+        // No slug, no contact info, no GHL match — check if they have any messages
+        const { count: msgCount } = await supabase
+          .from('dm_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('skool_user_id', uid)
+
+        if (!msgCount || msgCount === 0) {
+          // Truly unresolvable: no slug, no data, no messages — delete
+          await supabase.from('contact_channels').delete().eq('skool_user_id', uid)
+          await supabase.from('dm_contact_mappings').delete().eq('id', mapping.id)
+          stats.unresolvable_deleted++
+        }
+      }
+    }
+
+    console.log(`[Backfill] Enriched ${stats.slug_enriched} contacts from slug-format skool_user_id, deleted ${stats.unresolvable_deleted} unresolvable`)
 
     // =========================================================================
     // Step 3: Auto-match unmatched members against GHL
