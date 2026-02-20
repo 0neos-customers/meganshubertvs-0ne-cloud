@@ -46,6 +46,7 @@ interface ContactActivityResponse {
     contacts_with_pending: number
     contacts_with_failed: number
   }
+  total: number
 }
 
 /**
@@ -149,7 +150,7 @@ export async function GET(request: NextRequest) {
     // Server-side pagination
     mappingsQuery = mappingsQuery.range(offset, offset + limit - 1)
 
-    const { data: mappings, error: mappingsError } = await mappingsQuery
+    const { data: mappings, count: filteredCount, error: mappingsError } = await mappingsQuery
 
     if (mappingsError) {
       console.error('[Contacts API] GET mappings error:', mappingsError)
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!mappings || mappings.length === 0) {
-      return NextResponse.json({ contacts: [], summary } as ContactActivityResponse)
+      return NextResponse.json({ contacts: [], summary, total: filteredCount || 0 } as ContactActivityResponse)
     }
 
     // =========================================================================
@@ -356,7 +357,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ contacts: contactsWithStats, summary } as ContactActivityResponse)
+    return NextResponse.json({ contacts: contactsWithStats, summary, total: filteredCount || 0 } as ContactActivityResponse)
   } catch (error) {
     console.error('[Contacts API] GET exception:', error)
     return NextResponse.json(

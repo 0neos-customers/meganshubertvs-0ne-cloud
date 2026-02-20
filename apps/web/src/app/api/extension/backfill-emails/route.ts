@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
       ghl_created: 0,
       names_cleaned: 0,
       usernames_cleaned: 0,
+      junk_deleted: 0,
     }
 
     // =========================================================================
@@ -273,6 +274,48 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Backfill] Cleaned ${stats.usernames_cleaned} garbage usernames`)
+
+    // =========================================================================
+    // Step 2d: Delete junk dm_contact_mappings rows
+    // Junk = no username, no email, no phone, no ghl_contact_id, no DM messages
+    // =========================================================================
+
+    const junkCandidates = await fetchAllRows<{
+      id: string
+      skool_user_id: string
+    }>(supabase, 'dm_contact_mappings', 'id, skool_user_id', (q) =>
+      q
+        .is('skool_username', null)
+        .is('email', null)
+        .is('phone', null)
+        .is('ghl_contact_id', null)
+    )
+
+    if (junkCandidates.length > 0) {
+      // Check which of these have DM messages (keep those)
+      const junkUserIds = junkCandidates.map((j) => j.skool_user_id)
+      const { data: usersWithMessages } = await supabase
+        .from('dm_messages')
+        .select('skool_user_id')
+        .in('skool_user_id', junkUserIds)
+
+      const hasMessages = new Set(usersWithMessages?.map((m) => m.skool_user_id) || [])
+      const toDelete = junkCandidates.filter((j) => !hasMessages.has(j.skool_user_id))
+
+      if (toDelete.length > 0) {
+        const deleteIds = toDelete.map((j) => j.id)
+        // Delete in batches of 100
+        for (let i = 0; i < deleteIds.length; i += 100) {
+          const batch = deleteIds.slice(i, i + 100)
+          await supabase
+            .from('dm_contact_mappings')
+            .delete()
+            .in('id', batch)
+        }
+        stats.junk_deleted = toDelete.length
+        console.log(`[Backfill] Deleted ${toDelete.length} junk dm_contact_mappings rows`)
+      }
+    }
 
     // =========================================================================
     // Step 3: Auto-match unmatched members against GHL

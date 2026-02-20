@@ -43,6 +43,8 @@ import {
   Zap,
   HelpCircle,
   Inbox,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useContactActivity, type ContactActivity } from '@/features/dm-sync'
 import { useSyntheticCreate } from '@/features/dm-sync/hooks/use-contact-mutations'
@@ -528,6 +530,8 @@ function UnmatchedTable({
   )
 }
 
+const PAGE_SIZE = 50
+
 // Main page component
 export default function ContactActivityPage() {
   const [search, setSearch] = useState('')
@@ -535,6 +539,7 @@ export default function ContactActivityPage() {
   const [status, setStatus] = useState('all')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeTab, setActiveTab] = useState('matched')
+  const [page, setPage] = useState(0)
   const [editContact, setEditContact] = useState<ContactActivity | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
 
@@ -543,6 +548,7 @@ export default function ContactActivityPage() {
   // Debounce search input
   const handleSearchChange = (value: string) => {
     setSearch(value)
+    setPage(0) // Reset to first page on search
     const timeoutId = setTimeout(() => {
       setDebouncedSearch(value)
     }, 300)
@@ -551,12 +557,16 @@ export default function ContactActivityPage() {
 
   const matchStatus = activeTab === 'matched' ? 'matched' : activeTab === 'unmatched' ? 'unmatched' : 'all'
 
-  const { contacts, summary, isLoading, error, refresh } = useContactActivity({
+  const { contacts, summary, total, isLoading, error, refresh } = useContactActivity({
     search: debouncedSearch,
     matchMethod: activeTab === 'matched' ? matchMethod : undefined,
     matchStatus,
     status: activeTab === 'matched' ? status : undefined,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
   })
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const handleEditContact = (contact: ContactActivity) => {
     setEditContact(contact)
@@ -632,7 +642,7 @@ export default function ContactActivityPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setPage(0) }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <TabsList>
                 <TabsTrigger value="matched">
@@ -655,7 +665,7 @@ export default function ContactActivityPage() {
                       className="pl-9"
                     />
                   </div>
-                  <Select value={matchMethod} onValueChange={setMatchMethod}>
+                  <Select value={matchMethod} onValueChange={(v) => { setMatchMethod(v); setPage(0) }}>
                     <SelectTrigger className="w-[140px]">
                       <SelectValue placeholder="Method" />
                     </SelectTrigger>
@@ -667,7 +677,7 @@ export default function ContactActivityPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={status} onValueChange={setStatus}>
+                  <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0) }}>
                     <SelectTrigger className="w-[130px]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -713,6 +723,38 @@ export default function ContactActivityPage() {
               />
             </TabsContent>
           </Tabs>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0 || isLoading}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1 || isLoading}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           <p className="text-xs text-muted-foreground text-center">
             Auto-refreshes every 30 seconds

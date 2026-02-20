@@ -69,6 +69,7 @@ export interface UseContactActivityOptions {
 export interface UseContactActivityReturn {
   contacts: ContactActivity[]
   summary: ContactActivitySummary
+  total: number
   isLoading: boolean
   error: Error | undefined
   refresh: () => void
@@ -100,6 +101,7 @@ export function useContactActivity(
   const { data, error, mutate } = useSWR<{
     contacts: ContactActivity[]
     summary: ContactActivitySummary
+    total: number
   }>(url, fetcher, {
     refreshInterval: 30000, // Auto-refresh every 30 seconds
   })
@@ -114,6 +116,7 @@ export function useContactActivity(
       contacts_with_pending: 0,
       contacts_with_failed: 0,
     },
+    total: data?.total || 0,
     isLoading: !error && !data,
     error,
     refresh: mutate,
