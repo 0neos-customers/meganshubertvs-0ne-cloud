@@ -50,7 +50,10 @@ import {
   Loader2,
   Palette,
   Receipt,
+  Landmark,
+  Timer,
 } from 'lucide-react'
+import { usePlaidBalances } from '@/features/personal/hooks/use-plaid-balances'
 
 // Helper to generate light background from hex color
 function hexToLightBg(hex: string): string {
@@ -182,6 +185,8 @@ export default function PersonalExpensesPage() {
     isLoading: isCategoriesLoading,
     refetch: refetchCategories,
   } = usePersonalExpenseCategories()
+
+  const { summary: balanceSummary } = usePlaidBalances()
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<ExpenseFormData | null>(null)
@@ -489,6 +494,22 @@ export default function PersonalExpensesPage() {
             icon={Tag}
             description={topCategory ? `$${topCategory.amount.toLocaleString()}` : 'No expenses yet'}
           />
+          {balanceSummary && balanceSummary.totalChecking > 0 && (
+            <MetricCard
+              title="Bank Balance"
+              value={`$${balanceSummary.totalChecking.toLocaleString()}`}
+              icon={Landmark}
+              description="Total checking balance"
+            />
+          )}
+          {balanceSummary && balanceSummary.totalChecking > 0 && monthlyBurnRate > 0 && (
+            <MetricCard
+              title="Runway"
+              value={`${Math.round(balanceSummary.totalChecking / monthlyBurnRate)} mo`}
+              icon={Timer}
+              description="Cash / monthly burn rate"
+            />
+          )}
         </div>
 
         {/* Tabs for different views */}

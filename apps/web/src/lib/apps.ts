@@ -9,6 +9,7 @@ import {
   Bell,
   DollarSign,
   GraduationCap,
+  Landmark,
   Building2,
   Calendar,
   FileText,
@@ -131,6 +132,7 @@ export function getAppNavigation(appId: AppId): AppNavItem[] {
     case 'personal':
       return [
         { name: 'Expenses', href: '/personal/expenses', icon: DollarSign },
+        { name: 'Banking', href: '/personal/banking', icon: Landmark },
       ]
     default:
       return []

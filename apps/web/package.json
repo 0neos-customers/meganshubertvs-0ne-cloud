@@ -18,8 +18,10 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "plaid": "^28.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-plaid-link": "^3.6.0",
     "recharts": "^3.7.0",
     "swr": "^2.4.0",
     "zustand": "^5.0.0"
