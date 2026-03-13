@@ -20,6 +20,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/embed(.*)',
+  '/privacy',
+  '/security-policy',
+  '/access-control',
   '/api/public(.*)',
   '/api/cron(.*)',
   '/api/external(.*)', // External API uses API key auth
