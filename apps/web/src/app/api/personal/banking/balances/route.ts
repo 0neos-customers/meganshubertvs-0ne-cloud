@@ -98,7 +98,8 @@ export async function GET(request: Request) {
         totalAssets,
         totalLiabilities,
         netWorth,
-        totalChecking: grouped.checking.reduce((sum, a) => sum + (a.current_balance || 0), 0),
+        totalChecking: grouped.checking.reduce((sum, a) => sum + (a.available_balance ?? a.current_balance ?? 0), 0),
+        totalSavings: grouped.savings.reduce((sum, a) => sum + (a.available_balance ?? a.current_balance ?? 0), 0),
       },
     })
   } catch (error) {

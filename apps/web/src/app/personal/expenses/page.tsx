@@ -42,7 +42,6 @@ import {
 import {
   Plus,
   DollarSign,
-  TrendingUp,
   Wallet,
   Tag,
   Pencil,
@@ -50,8 +49,8 @@ import {
   Loader2,
   Palette,
   Receipt,
-  Landmark,
-  Timer,
+  CalendarDays,
+  Clock,
 } from 'lucide-react'
 import { usePlaidBalances } from '@/features/personal/hooks/use-plaid-balances'
 
@@ -369,15 +368,15 @@ export default function PersonalExpensesPage() {
   // Summary data
   const totalExpenses = expensesData?.summary.totalExpenses ?? 0
   const monthlyBurnRate = expensesData?.summary.monthlyBurnRate ?? 0
-  const activeExpenses = expensesData?.summary.activeExpenses ?? 0
 
-  // Top category by spend
-  const topCategory = useMemo(() => {
-    if (expensesData?.categories && expensesData.categories.length > 0) {
-      return expensesData.categories[0] // Already sorted by amount desc from API
-    }
-    return null
-  }, [expensesData?.categories])
+  // Cash on hand from cached Plaid balances (depository accounts only)
+  const cashOnHand = balanceSummary
+    ? balanceSummary.totalChecking + balanceSummary.totalSavings
+    : 0
+  const hasCash = balanceSummary && cashOnHand > 0
+  const dailyBurnRate = monthlyBurnRate / 30
+  const runwayDays = dailyBurnRate > 0 ? cashOnHand / dailyBurnRate : 0
+  const runwayMonths = monthlyBurnRate > 0 ? cashOnHand / monthlyBurnRate : 0
 
   // Build category color map from loaded categories
   const categoryColorMap = useMemo(() => {
@@ -469,47 +468,29 @@ export default function PersonalExpensesPage() {
         {/* Summary Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            title="Total Expenses"
-            value={`$${totalExpenses.toLocaleString()}`}
-            change={expensesData?.categories?.[0]?.change}
-            trend={totalExpenses > 0 ? 'up' : 'neutral'}
+            title="Cash On Hand"
+            value={hasCash ? `$${cashOnHand.toLocaleString()}` : '—'}
             icon={DollarSign}
-            positiveIsGood={false}
+            description={hasCash ? 'Available cash from connected accounts' : 'Connect a bank account'}
           />
           <MetricCard
-            title="Monthly Burn Rate"
+            title="Burn Rate"
             value={`$${monthlyBurnRate.toLocaleString()}/mo`}
             icon={Wallet}
-            description="Average per month in period"
+            description="Total monthly expenses"
           />
           <MetricCard
-            title="Active Expenses"
-            value={String(activeExpenses)}
-            icon={TrendingUp}
-            description="Currently tracked"
+            title="Runway In Days"
+            value={hasCash && dailyBurnRate > 0 ? runwayDays.toFixed(2) : '—'}
+            icon={CalendarDays}
+            description={hasCash && dailyBurnRate > 0 ? 'Days until $0' : 'Needs cash + expenses'}
           />
           <MetricCard
-            title="Top Category"
-            value={topCategory?.name ?? 'None'}
-            icon={Tag}
-            description={topCategory ? `$${topCategory.amount.toLocaleString()}` : 'No expenses yet'}
+            title="Runway In Months"
+            value={hasCash && monthlyBurnRate > 0 ? runwayMonths.toFixed(2) : '—'}
+            icon={Clock}
+            description={hasCash && monthlyBurnRate > 0 ? 'Months until $0' : 'Needs cash + expenses'}
           />
-          {balanceSummary && balanceSummary.totalChecking > 0 && (
-            <MetricCard
-              title="Bank Balance"
-              value={`$${balanceSummary.totalChecking.toLocaleString()}`}
-              icon={Landmark}
-              description="Total checking balance"
-            />
-          )}
-          {balanceSummary && balanceSummary.totalChecking > 0 && monthlyBurnRate > 0 && (
-            <MetricCard
-              title="Runway"
-              value={`${Math.round(balanceSummary.totalChecking / monthlyBurnRate)} mo`}
-              icon={Timer}
-              description="Cash / monthly burn rate"
-            />
-          )}
         </div>
 
         {/* Tabs for different views */}

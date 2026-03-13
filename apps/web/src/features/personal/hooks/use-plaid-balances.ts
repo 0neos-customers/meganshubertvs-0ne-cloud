@@ -22,6 +22,7 @@ export interface PlaidBalanceSummary {
   totalLiabilities: number
   netWorth: number
   totalChecking: number
+  totalSavings: number
 }
 
 interface UsePlaidBalancesReturn {
