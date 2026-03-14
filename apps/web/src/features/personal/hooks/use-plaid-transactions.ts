@@ -18,6 +18,7 @@ export interface PlaidTransaction {
     name: string
     mask: string | null
     type: string
+    scope: 'personal' | 'business' | null
     plaid_items: { institution_name: string } | null
   }
 }
@@ -32,6 +33,7 @@ interface UsePlaidTransactionsReturn {
 
 export function usePlaidTransactions(options: {
   accountId?: string | null
+  scope?: 'personal' | 'business' | null
   startDate?: string | null
   endDate?: string | null
   category?: string | null
@@ -39,7 +41,7 @@ export function usePlaidTransactions(options: {
   page?: number
   limit?: number
 } = {}): UsePlaidTransactionsReturn {
-  const { accountId, startDate, endDate, category, search, page = 1, limit = 50 } = options
+  const { accountId, scope, startDate, endDate, category, search, page = 1, limit = 50 } = options
   const [transactions, setTransactions] = useState<PlaidTransaction[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -52,6 +54,7 @@ export function usePlaidTransactions(options: {
     try {
       const url = new URL('/api/personal/banking/transactions', window.location.origin)
       if (accountId) url.searchParams.set('accountId', accountId)
+      if (scope) url.searchParams.set('scope', scope)
       if (startDate) url.searchParams.set('startDate', startDate)
       if (endDate) url.searchParams.set('endDate', endDate)
       if (category) url.searchParams.set('category', category)
@@ -73,7 +76,7 @@ export function usePlaidTransactions(options: {
     } finally {
       setIsLoading(false)
     }
-  }, [accountId, startDate, endDate, category, search, page, limit])
+  }, [accountId, scope, startDate, endDate, category, search, page, limit])
 
   useEffect(() => {
     fetchData()
@@ -99,6 +102,17 @@ export async function updatePlaidTransaction(
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, ...updates }),
+  })
+  return response.json()
+}
+
+export async function promoteToExpense(
+  transactionId: string
+): Promise<{ success: boolean; expense_id?: string; error?: string }> {
+  const response = await fetch('/api/personal/banking/transactions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transaction_id: transactionId }),
   })
   return response.json()
 }

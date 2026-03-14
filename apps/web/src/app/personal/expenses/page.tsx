@@ -51,8 +51,16 @@ import {
   Receipt,
   CalendarDays,
   Clock,
+  ArrowRightCircle,
+  CheckCircle2,
+  ArrowDownUp,
 } from 'lucide-react'
 import { usePlaidBalances } from '@/features/personal/hooks/use-plaid-balances'
+import {
+  usePlaidTransactions,
+  promoteToExpense,
+  type PlaidTransaction,
+} from '@/features/personal/hooks/use-plaid-transactions'
 
 // Helper to generate light background from hex color
 function hexToLightBg(hex: string): string {
@@ -185,7 +193,23 @@ export default function PersonalExpensesPage() {
     refetch: refetchCategories,
   } = usePersonalExpenseCategories()
 
-  const { summary: balanceSummary } = usePlaidBalances()
+  const { summary: balanceSummary } = usePlaidBalances({ scope: 'personal' })
+
+  // Fetch all bank transactions from personal-scoped accounts
+  const [txnPage, setTxnPage] = useState(1)
+  const [txnSearch, setTxnSearch] = useState('')
+  const {
+    transactions: bankTransactions,
+    total: bankTxnTotal,
+    isLoading: isTxnLoading,
+    refetch: refetchTxns,
+  } = usePlaidTransactions({
+    scope: 'personal',
+    search: txnSearch || null,
+    page: txnPage,
+    limit: 20,
+  })
+  const [promotingIds, setPromotingIds] = useState<Set<string>>(new Set())
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<ExpenseFormData | null>(null)
@@ -365,6 +389,29 @@ export default function PersonalExpensesPage() {
     setIsCategoryDialogOpen(true)
   }
 
+  // Promote a bank transaction to a tracked expense
+  const handlePromoteTransaction = async (txn: PlaidTransaction) => {
+    setPromotingIds((prev) => new Set(prev).add(txn.id))
+    try {
+      const result = await promoteToExpense(txn.id)
+      if (result.success) {
+        toast.success('Transaction added to expenses')
+        refetchTxns()
+        refetch() // refresh expenses too
+      } else {
+        throw new Error(result.error || 'Failed to add to expenses')
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add to expenses')
+    } finally {
+      setPromotingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(txn.id)
+        return next
+      })
+    }
+  }
+
   // Summary data
   const totalExpenses = expensesData?.summary.totalExpenses ?? 0
   const monthlyBurnRate = expensesData?.summary.monthlyBurnRate ?? 0
@@ -499,6 +546,7 @@ export default function PersonalExpensesPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="all">All Expenses</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="transactions">All Transactions</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -712,6 +760,195 @@ export default function PersonalExpensesPage() {
                     keyField="id"
                     paginated={false}
                   />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* All Transactions Tab */}
+          <TabsContent value="transactions" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Transactions</CardTitle>
+                <CardDescription>
+                  Bank transactions from your personal accounts. Add transactions to &quot;All Expenses&quot; to track them in your burn rate.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Search */}
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search transactions..."
+                    value={txnSearch}
+                    onChange={(e) => {
+                      setTxnSearch(e.target.value)
+                      setTxnPage(1)
+                    }}
+                    className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+
+                {isTxnLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : bankTransactions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <ArrowDownUp className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <h3 className="text-lg font-medium">No transactions</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {txnSearch
+                        ? 'No transactions match your search.'
+                        : 'Connect a personal bank account and sync to see transactions here.'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <DataTable
+                      columns={[
+                        {
+                          key: 'date',
+                          header: 'Date',
+                          render: (value) => (
+                            <span className="text-sm tabular-nums">{value as string}</span>
+                          ),
+                        },
+                        {
+                          key: 'merchant_name',
+                          header: 'Name',
+                          render: (value, row) => (
+                            <div>
+                              <span className="font-medium">
+                                {(value as string) || (row as unknown as PlaidTransaction).name || 'Unknown'}
+                              </span>
+                              {(row as unknown as PlaidTransaction).is_pending && (
+                                <span className="ml-2 text-xs text-amber-600 font-medium">Pending</span>
+                              )}
+                            </div>
+                          ),
+                        },
+                        {
+                          key: 'amount',
+                          header: 'Amount',
+                          align: 'right' as const,
+                          render: (value) => {
+                            const amt = value as number
+                            return (
+                              <span className={cn('font-medium tabular-nums', amt > 0 ? 'text-red-600' : 'text-green-600')}>
+                                {amt > 0 ? '-' : '+'}${Math.abs(amt).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            )
+                          },
+                        },
+                        {
+                          key: 'plaid_accounts',
+                          header: 'Account',
+                          render: (value) => {
+                            const acct = value as PlaidTransaction['plaid_accounts']
+                            return (
+                              <span className="text-sm text-muted-foreground">
+                                {acct?.name || 'Unknown'}{acct?.mask ? ` ••${acct.mask}` : ''}
+                              </span>
+                            )
+                          },
+                        },
+                        {
+                          key: 'mapped_category',
+                          header: 'Category',
+                          render: (value) => {
+                            const cat = value as string | null
+                            if (!cat) return <span className="text-muted-foreground">—</span>
+                            const color = categoryColorMap[cat.toLowerCase()] || '#6b7280'
+                            return (
+                              <span
+                                className="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                                style={{ backgroundColor: hexToLightBg(color), color }}
+                              >
+                                {cat}
+                              </span>
+                            )
+                          },
+                        },
+                        {
+                          key: 'personal_expense_id',
+                          header: '',
+                          align: 'right' as const,
+                          sortable: false,
+                          render: (value, row) => {
+                            const txn = row as unknown as PlaidTransaction
+                            const isPromoted = !!value
+                            const isPromoting = promotingIds.has(txn.id)
+
+                            if (isPromoted) {
+                              return (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Tracked
+                                </span>
+                              )
+                            }
+
+                            // Only show for money-out transactions (positive = money out in Plaid)
+                            if (txn.amount <= 0) return null
+
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={isPromoting}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePromoteTransaction(txn)
+                                }}
+                                className="text-primary hover:text-primary"
+                                title="Add to tracked expenses (counts toward burn rate)"
+                              >
+                                {isPromoting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <ArrowRightCircle className="h-4 w-4 mr-1" />
+                                    <span className="text-xs">Add to Expenses</span>
+                                  </>
+                                )}
+                              </Button>
+                            )
+                          },
+                        },
+                      ]}
+                      data={bankTransactions}
+                      keyField="id"
+                      paginated={false}
+                    />
+
+                    {/* Pagination */}
+                    {bankTxnTotal > 20 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <span className="text-sm text-muted-foreground">
+                          Showing {(txnPage - 1) * 20 + 1}–{Math.min(txnPage * 20, bankTxnTotal)} of {bankTxnTotal}
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={txnPage === 1}
+                            onClick={() => setTxnPage((p) => p - 1)}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={txnPage * 20 >= bankTxnTotal}
+                            onClick={() => setTxnPage((p) => p + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // Get category mappings for auto-import
+    // Get category mappings (used to tag transactions with mapped_category for display)
     const { data: mappings } = await supabase
       .from('plaid_category_mappings')
       .select('plaid_primary, plaid_detailed, expense_category_slug')
@@ -56,7 +56,6 @@ export async function POST(request: Request) {
     })
 
     let totalSynced = 0
-    let totalImported = 0
     const errors: string[] = []
 
     for (const item of items) {
@@ -96,7 +95,7 @@ export async function POST(request: Request) {
           }
 
           // Upsert transaction
-          const { data: txnRow, error: txnError } = await supabase
+          const { error: txnError } = await supabase
             .from('plaid_transactions')
             .upsert({
               transaction_id: txn.transaction_id,
@@ -111,8 +110,6 @@ export async function POST(request: Request) {
               mapped_category: mappedCategory,
               is_pending: txn.pending || false,
             }, { onConflict: 'transaction_id' })
-            .select('id, is_excluded, personal_expense_id')
-            .single()
 
           if (txnError) {
             console.error('Upsert transaction error:', txnError)
@@ -120,33 +117,6 @@ export async function POST(request: Request) {
           }
 
           totalSynced++
-
-          // Auto-import to personal_expenses if mapped and not excluded
-          if (mappedCategory && !txnRow.is_excluded && !txnRow.personal_expense_id && txn.amount > 0) {
-            const { data: expense, error: expenseError } = await supabase
-              .from('personal_expenses')
-              .insert({
-                name: txn.merchant_name || txn.name || 'Unknown',
-                category: mappedCategory,
-                amount: Math.abs(txn.amount),
-                expense_date: txn.date,
-                frequency: 'one_time',
-                is_active: true,
-                notes: `Auto-imported from Plaid (${txn.transaction_id})`,
-              })
-              .select('id')
-              .single()
-
-            if (!expenseError && expense) {
-              // Link back to transaction
-              await supabase
-                .from('plaid_transactions')
-                .update({ personal_expense_id: expense.id })
-                .eq('id', txnRow.id)
-
-              totalImported++
-            }
-          }
         }
 
         // Process modified transactions
@@ -207,7 +177,6 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       synced: totalSynced,
-      imported: totalImported,
       errors: errors.length > 0 ? errors : undefined,
       timestamp: new Date().toISOString(),
     })
