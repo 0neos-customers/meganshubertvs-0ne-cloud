@@ -52,7 +52,8 @@ export function OAuthButtons({ mode }: OAuthButtonsProps) {
   if (!clerk.loaded) return null
 
   // Read enabled social providers from Clerk's environment config
-  const env = (clerk as Record<string, unknown>).__unstable__environment as
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const env = (clerk as unknown as Record<string, any>).__unstable__environment as
     | { userSettings?: { social?: Record<string, { enabled: boolean }> } }
     | undefined
   const socialConfig = env?.userSettings?.social
