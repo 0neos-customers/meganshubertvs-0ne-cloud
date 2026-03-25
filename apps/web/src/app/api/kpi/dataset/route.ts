@@ -125,15 +125,14 @@ export async function GET(request: Request) {
 
     // Calculate stage counts from contacts' stages arrays (tags accumulate)
     const stageCountsMap: Record<string, number> = {}
-    const contactsData = contactStageCountsData
-    contactsData.forEach((contact: { stages: unknown }) => {
-      const stages = (contact.stages as string[]) || []
-      stages.forEach((stage) => {
+    for (const contact of contactStageCountsData as { stages: string[] | null }[]) {
+      const stages = contact.stages || []
+      for (const stage of stages) {
         if (stage) {
           stageCountsMap[stage] = (stageCountsMap[stage] || 0) + 1
         }
-      })
-    })
+      }
+    }
 
     // Build dimension stages with live counts
     const dimensionStagesWithCounts = dimensionStagesData.map((stage: typeof dimensionStagesData[number]) => ({
@@ -268,7 +267,7 @@ export async function GET(request: Request) {
         periodEnd: endDateStr,
         daysIncluded: daysBack,
         aggregateCount: aggregates.length,
-        contactCount: contactsData.length,
+        contactCount: contactStageCountsData.length,
       },
     }
 

@@ -46,7 +46,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { useContactActivity, type ContactActivity } from '@/features/dm-sync'
+import { useContactActivity, type ContactActivity } from '@/features/dm-sync/hooks/use-contact-activity'
 import { useSyntheticCreate } from '@/features/dm-sync/hooks/use-contact-mutations'
 import { ContactEditDialog } from '@/features/dm-sync/components/ContactEditDialog'
 

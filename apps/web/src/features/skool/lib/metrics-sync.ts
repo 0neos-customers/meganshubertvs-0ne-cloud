@@ -9,7 +9,6 @@ import { db, eq, desc, asc, gte } from '@0ne/db/server'
 import { skoolMetrics } from '@0ne/db/server'
 import { DEFAULT_GROUP } from './config'
 import type { SkoolMetricsSnapshot } from './types'
-export type { SkoolMetricsSnapshot } from './types'
 
 /**
  * Get latest metrics for a group

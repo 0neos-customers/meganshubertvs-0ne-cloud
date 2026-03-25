@@ -36,7 +36,7 @@ import {
   ChevronRight,
   ExternalLink,
 } from 'lucide-react'
-import { useRawMessages, type RawMessage } from '@/features/dm-sync'
+import { useRawMessages, type RawMessage } from '@/features/dm-sync/hooks/use-raw-messages'
 
 // Direction options for filter
 const DIRECTION_OPTIONS = [
