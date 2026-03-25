@@ -26,79 +26,9 @@ import { auth } from '@clerk/nextjs/server'
 import { db, eq, gte, lte, and, desc, count, ilike, arrayOverlaps, arrayContains } from '@0ne/db/server'
 import { ghlTransactions, contacts } from '@0ne/db/server'
 import { FUNNEL_STAGE_ORDER, STAGE_LABELS, STAGE_COLORS, type FunnelStage } from '@/features/kpi/lib/config'
+import { parseDateRange, calculateChange, determineTrend } from '@/features/kpi/lib'
 
 export const dynamic = 'force-dynamic'
-
-interface DateRangeResult {
-  startDate: string
-  endDate: string
-}
-
-function getDateRangeFromPeriod(period: string): DateRangeResult {
-  const now = new Date()
-  const endDate = now.toISOString().split('T')[0]
-  let startDate: Date
-
-  switch (period) {
-    case '7d':
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case '30d':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    case '90d':
-      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-      break
-    case 'mtd': {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      break
-    }
-    case 'lastMonth': {
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      return {
-        startDate: lastMonth.toISOString().split('T')[0],
-        endDate: new Date(thisMonth.getTime() - 1).toISOString().split('T')[0],
-      }
-    }
-    case 'ytd':
-      startDate = new Date(now.getFullYear(), 0, 1)
-      break
-    case 'lifetime':
-      startDate = new Date('2020-01-01')
-      break
-    default:
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  }
-
-  return {
-    startDate: startDate.toISOString().split('T')[0],
-    endDate,
-  }
-}
-
-function parseDateRange(searchParams: URLSearchParams): DateRangeResult {
-  const startDateParam = searchParams.get('startDate')
-  const endDateParam = searchParams.get('endDate')
-
-  if (startDateParam && endDateParam) {
-    return { startDate: startDateParam, endDate: endDateParam }
-  }
-
-  const period = searchParams.get('period') || '30d'
-  return getDateRangeFromPeriod(period)
-}
-
-function calculateChange(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0
-  return ((current - previous) / previous) * 100
-}
-
-function determineTrend(change: number): 'up' | 'down' | 'neutral' {
-  if (change > 0) return 'up'
-  if (change < 0) return 'down'
-  return 'neutral'
-}
 
 export async function GET(request: Request) {
   const { userId } = await auth()
@@ -108,7 +38,7 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const { startDate, endDate } = parseDateRange(searchParams)
+    const { startDate, endDate } = parseDateRange(searchParams, '30d')
     const period = searchParams.get('period') || '30d'
 
     // Calculate previous period for comparison
@@ -119,8 +49,6 @@ export async function GET(request: Request) {
     const previousEndDate = new Date(new Date(startDate).getTime() - 1)
       .toISOString()
       .split('T')[0]
-
-    console.log(`[GHL API] Fetching for ${startDate} to ${endDate}, prev: ${previousStartDate} to ${previousEndDate}`)
 
     // =============================================================================
     // CURRENT PERIOD TRANSACTIONS
@@ -196,8 +124,6 @@ export async function GET(request: Request) {
     const fundingFeesChange = calculateChange(currentFundingFees, previousFundingFees)
     const avgTransactionChange = calculateChange(currentAvgTransaction, previousAvgTransaction)
 
-    console.log(`[GHL API] Total: $${currentTotalRevenue} (${currentTransactionCount} txns), Setup: $${currentSetupFees}, Funding: $${currentFundingFees}`)
-
     // =============================================================================
     // CONTACT METRICS
     // =============================================================================
@@ -257,8 +183,6 @@ export async function GET(request: Request) {
 
     const newContactsChange = calculateChange(newContactsCurrent, newContactsPrevious)
 
-    console.log(`[GHL API] Contacts: Total=${totalContacts}, New=${newContactsCurrent}, HandRaisers=${handRaisers}, Clients=${clients}`)
-
     // =============================================================================
     // FUNNEL STAGE DISTRIBUTION
     // =============================================================================
@@ -282,8 +206,6 @@ export async function GET(request: Request) {
 
     // Reverse to show from member to client (bottom to top of funnel)
     stageDistribution.reverse()
-
-    console.log(`[GHL API] Stage distribution: ${stageDistribution.map(s => `${s.stage}=${s.count}`).join(', ')}`)
 
     // =============================================================================
     // TRANSACTIONS LIST (optional, when include=transactions)
@@ -345,17 +267,17 @@ export async function GET(request: Request) {
         .limit(limit)
         .offset(offset)
 
-      transactions = txnData.map(t => ({
-        id: t.id,
-        contact_name: t.contactName,
-        transaction_type: t.entitySourceName === 'PREIFM' ? 'Setup Fee' : t.entitySourceName === 'New Invoice' ? 'Funding Fee' : t.entitySourceName || 'Unknown',
-        amount: t.amount || 0,
-        status: t.status!,
-        transaction_date: t.transactionDate!.toISOString(),
-      }))
+      transactions = txnData
+        .filter((t): t is typeof t & { transactionDate: Date } => t.transactionDate != null)
+        .map(t => ({
+          id: t.id,
+          contact_name: t.contactName,
+          transaction_type: t.entitySourceName === 'PREIFM' ? 'Setup Fee' : t.entitySourceName === 'New Invoice' ? 'Funding Fee' : t.entitySourceName || 'Unknown',
+          amount: t.amount || 0,
+          status: t.status ?? 'unknown',
+          transaction_date: t.transactionDate.toISOString(),
+        }))
       transactionsTotal = txnCount || 0
-
-      console.log(`[GHL API] Transactions: ${transactions.length} of ${transactionsTotal} (type=${transactionType}, search=${searchTerm})`)
     }
 
     // =============================================================================
@@ -412,8 +334,6 @@ export async function GET(request: Request) {
         })
       }
     }
-
-    console.log(`[GHL API] Revenue trend: ${revenueTrend.length} ${useDaily ? 'days' : 'months'}, grouping=${useDaily ? 'daily' : 'monthly'}`)
 
     // =============================================================================
     // BUILD RESPONSE

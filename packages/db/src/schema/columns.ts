@@ -30,7 +30,9 @@ export const numericNumber = customType<{
     return 'numeric'
   },
   fromDriver(value: string): number {
-    return Number(value)
+    const num = Number(value)
+    if (!Number.isFinite(num)) throw new Error(`Invalid numeric value from database: ${value}`)
+    return num
   },
   toDriver(value: number): string {
     if (!Number.isFinite(value)) throw new Error(`Invalid numeric value: ${value}`)

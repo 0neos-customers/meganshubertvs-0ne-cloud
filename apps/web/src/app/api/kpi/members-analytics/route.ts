@@ -45,8 +45,6 @@ async function getFilteredBySource(
       )
     )
 
-  console.log(`[Members Analytics] Found ${members.length} members matching sources: ${sources.join(', ')}`)
-
   // Aggregate by date
   const dailyMap = new Map<string, number>()
 
@@ -199,8 +197,6 @@ export async function GET(request: NextRequest) {
         startDate = thirtyDaysAgo.toISOString().split('T')[0]
       }
     }
-
-    console.log(`[Members Analytics] sources=${sources.length > 0 ? sources.join(',') : 'all'}, ${startDate} to ${endDate}`)
 
     // If sources are specified, query skool_members directly and aggregate by date
     if (sources.length > 0) {

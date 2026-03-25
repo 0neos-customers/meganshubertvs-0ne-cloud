@@ -20,63 +20,12 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { db, eq, gte, lte, and, desc, count } from '@0ne/db/server'
 import { skoolRevenueDaily, skoolMembers, ghlTransactions, expenses as expensesTable, contacts } from '@0ne/db/server'
+import { parseDateRange } from '@/features/kpi/lib'
 
 export const dynamic = 'force-dynamic'
 
 // Cohort day intervals for EPL/LTV calculation
 const COHORT_DAYS = [1, 7, 14, 35, 65, 95, 185, 370]
-
-interface DateRangeResult {
-  startDate: string
-  endDate: string
-}
-
-function getDateRangeFromPeriod(period: string): DateRangeResult {
-  const now = new Date()
-  const endDate = now.toISOString().split('T')[0]
-  let startDate: Date
-
-  switch (period) {
-    case '7d':
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case '30d':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    case '90d':
-      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-      break
-    case 'mtd': {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      break
-    }
-    case 'ytd':
-      startDate = new Date(now.getFullYear(), 0, 1)
-      break
-    case 'lifetime':
-      startDate = new Date('2020-01-01')
-      break
-    default:
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  }
-
-  return {
-    startDate: startDate.toISOString().split('T')[0],
-    endDate,
-  }
-}
-
-function parseDateRange(searchParams: URLSearchParams): DateRangeResult {
-  const startDateParam = searchParams.get('startDate')
-  const endDateParam = searchParams.get('endDate')
-
-  if (startDateParam && endDateParam) {
-    return { startDate: startDateParam, endDate: endDateParam }
-  }
-
-  const period = searchParams.get('period') || 'lifetime'
-  return getDateRangeFromPeriod(period)
-}
 
 export async function GET(request: Request) {
   const { userId } = await auth()
@@ -86,11 +35,9 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const { startDate, endDate } = parseDateRange(searchParams)
+    const { startDate, endDate } = parseDateRange(searchParams, 'lifetime')
 
     const now = new Date()
-
-    console.log(`[Unit Economics] Calculating for ${startDate} to ${endDate}`)
 
     // =============================================================================
     // 1. GET CURRENT MRR AND PAYING MEMBERS
@@ -316,8 +263,6 @@ export async function GET(request: Request) {
         endDate,
       },
     }
-
-    console.log(`[Unit Economics] ARPU=$${arpu.toFixed(2)}, LTV=$${ltv.toFixed(2)}, EPL=$${epl.toFixed(2)}`)
 
     return NextResponse.json(response)
   } catch (error) {

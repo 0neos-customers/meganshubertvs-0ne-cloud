@@ -72,7 +72,7 @@ export async function GET(request: Request) {
         const eventData = row.eventData as { new_stage?: string; old_stage?: string } | null
         const newStage = eventData?.new_stage || 'unknown'
         const stageLabel = STAGE_LABELS[newStage as keyof typeof STAGE_LABELS] || newStage
-        const timestamp = new Date(row.createdAt!)
+        const timestamp = new Date(row.createdAt ?? new Date())
 
         return {
           id: row.id,
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
           action: `Moved to ${stageLabel}`,
           stage: newStage,
           source: row.source || row.contactSource || null,
-          timestamp: row.createdAt!.toISOString(),
+          timestamp: (row.createdAt ?? new Date()).toISOString(),
           timeAgo: getTimeAgo(timestamp),
         }
       })
@@ -104,16 +104,17 @@ export async function GET(request: Request) {
 
       const activity: RecentActivityItem[] = contactRows.map((contact) => {
         const name = [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unknown'
-        const stageLabel = STAGE_LABELS[contact.currentStage as keyof typeof STAGE_LABELS] || contact.currentStage
-        const timestamp = new Date(contact.updatedAt!)
+        const currentStage = contact.currentStage ?? 'member'
+        const stageLabel = STAGE_LABELS[currentStage as keyof typeof STAGE_LABELS] || currentStage
+        const timestamp = new Date(contact.updatedAt ?? new Date())
 
         return {
           id: contact.id,
           name,
           action: `Moved to ${stageLabel}`,
-          stage: contact.currentStage!,
+          stage: currentStage,
           source: contact.source,
-          timestamp: contact.updatedAt!.toISOString(),
+          timestamp: (contact.updatedAt ?? new Date()).toISOString(),
           timeAgo: getTimeAgo(timestamp),
         }
       })

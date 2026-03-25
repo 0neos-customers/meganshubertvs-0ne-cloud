@@ -8,82 +8,11 @@ import {
   STAGE_COLORS,
   type FunnelStage,
 } from '@/features/kpi/lib/config'
+import { parseDateRange, calculateChange } from '@/features/kpi/lib'
 import { getLatestMetrics } from '@/features/skool/lib/metrics-sync'
 import { getLatestRevenueSnapshot } from '@/features/skool/lib/revenue-sync'
 
 export const dynamic = 'force-dynamic'
-
-interface DateRangeResult {
-  startDate: string
-  endDate: string
-}
-
-function getDateRangeFromPeriod(period: string): DateRangeResult {
-  const now = new Date()
-  const endDate = now.toISOString().split('T')[0]
-  let startDate: Date
-
-  switch (period) {
-    case '7d':
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case '30d':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    case '90d':
-      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-      break
-    case 'mtd': {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      break
-    }
-    case 'lastMonth': {
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      return {
-        startDate: lastMonth.toISOString().split('T')[0],
-        endDate: new Date(thisMonth.getTime() - 1).toISOString().split('T')[0],
-      }
-    }
-    case 'ytd':
-      startDate = new Date(now.getFullYear(), 0, 1)
-      break
-    case 'lifetime':
-      // Use a very early date to capture all data
-      startDate = new Date('2020-01-01')
-      break
-    default:
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  }
-
-  return {
-    startDate: startDate.toISOString().split('T')[0],
-    endDate,
-  }
-}
-
-/**
- * Parse date range from request params
- * Priority: explicit startDate/endDate > period preset
- */
-function parseDateRange(searchParams: URLSearchParams): DateRangeResult {
-  const startDateParam = searchParams.get('startDate')
-  const endDateParam = searchParams.get('endDate')
-
-  // If explicit dates provided, use them
-  if (startDateParam && endDateParam) {
-    return { startDate: startDateParam, endDate: endDateParam }
-  }
-
-  // Fall back to period preset
-  const period = searchParams.get('period') || 'mtd'
-  return getDateRangeFromPeriod(period)
-}
-
-function calculateChange(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0
-  return ((current - previous) / previous) * 100
-}
 
 export async function GET(request: Request) {
   const { userId } = await auth()
@@ -177,9 +106,6 @@ export async function GET(request: Request) {
       getLatestMetrics(),
       getLatestRevenueSnapshot(),
     ])
-    console.log('[KPI Overview] Skool metrics:', skoolMetrics)
-    console.log('[KPI Overview] Revenue snapshot:', revenueSnapshot)
-
     // Fetch date-filtered about page visits from skool_about_page_daily
     const aboutPageDaily = await db
       .select({
@@ -198,8 +124,6 @@ export async function GET(request: Request) {
     const filteredConversionRate = aboutPageDaily.length > 0
       ? aboutPageDaily.reduce((sum, row) => sum + (row.conversionRate || 0), 0) / aboutPageDaily.length
       : skoolMetrics?.conversionRate || 0
-
-    console.log(`[KPI Overview] About visits for ${startDate} to ${endDate}: ${filteredAboutVisits} (${aboutPageDaily?.length || 0} days)`)
 
     // Fetch date-filtered member counts for current and previous periods
     // When sources are provided, query skool_members directly
@@ -255,8 +179,6 @@ export async function GET(request: Request) {
 
       filteredMemberCount = totalCount || 0
 
-      console.log(`[KPI Overview] Members for ${startDate} to ${endDate} (sources: ${sources.join(',')}): ${filteredMemberCount} total, ${newMembersInPeriod} new`)
-
       // Get previous period data for comparison
       const [{ value: prevNewCount }] = await db
         .select({ value: count() })
@@ -305,13 +227,11 @@ export async function GET(request: Request) {
 
       // Get member count at end of period (or latest available)
       filteredMemberCount = membersDailyData.length > 0
-        ? membersDailyData[membersDailyData.length - 1].totalMembers!
+        ? (membersDailyData[membersDailyData.length - 1].totalMembers ?? 0)
         : skoolMetrics?.membersTotal || 0
 
       // Calculate new members in period
       newMembersInPeriod = membersDailyData.reduce((sum, row) => sum + (row.newMembers || 0), 0)
-
-      console.log(`[KPI Overview] Members for ${startDate} to ${endDate}: ${filteredMemberCount} (${newMembersInPeriod} new)`)
 
       // Get previous period member data from skool_members_daily
       const prevMembersDailyData = await db
@@ -332,21 +252,18 @@ export async function GET(request: Request) {
 
       // Previous period member count at end of period
       previousPeriodMemberCount = prevMembersDailyData.length > 0
-        ? prevMembersDailyData[prevMembersDailyData.length - 1].totalMembers!
+        ? (prevMembersDailyData[prevMembersDailyData.length - 1].totalMembers ?? 0)
         : 0
 
       // New members in previous period
       previousPeriodNewMembers = prevMembersDailyData.reduce((sum, row) => sum + (row.newMembers || 0), 0)
 
-      console.log(`[KPI Overview] Previous period (${previousStartDate} to ${startDate}): ${previousPeriodMemberCount} total, ${previousPeriodNewMembers} new`)
     }
 
     // Calculate conversion rate from about visits to new members for this period
     const calculatedConversionRate = filteredAboutVisits > 0
       ? (newMembersInPeriod / filteredAboutVisits) * 100
       : 0
-    console.log(`[KPI Overview] Calculated conversion rate: ${calculatedConversionRate.toFixed(1)}% (${newMembersInPeriod} new / ${filteredAboutVisits} visits)`)
-
     // Calculate metrics
     const sumField = (data: typeof currentAggregates, field: keyof typeof currentAggregates[number]): number =>
       data.reduce((sum, row) => {
@@ -375,8 +292,6 @@ export async function GET(request: Request) {
       FUNNEL_STAGE_ORDER.map((stage) => [stage, stageCountsMap[stage] || 0])
     ) as Record<FunnelStage, number>
 
-    const totalContacts = Object.values(finalStageCounts).reduce((a, b) => a + b, 0)
-    console.log('Stage counts:', finalStageCounts, 'Total:', totalContacts)
     const funnelStages = [...FUNNEL_STAGE_ORDER].reverse().map((stageId, index, arr) => {
       const count = finalStageCounts[stageId]
       const previousStageCount = index > 0 ? finalStageCounts[arr[index - 1]] : null
@@ -445,7 +360,7 @@ export async function GET(request: Request) {
             ? (currentAdSpend / currentLeads <= previousAdSpend / previousLeads ? 'up' : 'down')
             : 'neutral',
           sparkline: sparklineData.map((d) =>
-            (d.newLeads || 0) > 0 ? Number(((d.adSpend || 0) / d.newLeads!).toFixed(2)) : 0
+            (d.newLeads || 0) > 0 ? Number(((d.adSpend || 0) / (d.newLeads ?? 0)).toFixed(2)) : 0
           ),
         },
         costPerClient: {

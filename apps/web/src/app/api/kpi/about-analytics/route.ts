@@ -221,19 +221,13 @@ export async function GET(request: Request) {
       ? 'About page visits cannot be filtered by attribution source. Attribution is recorded when visitors become members, but visit tracking happens before membership.'
       : undefined
 
-    console.log(`[About Analytics] Request: range=${range}, startDate=${startDateParam}, endDate=${endDateParam}${sources.length > 0 ? ` (sources ignored: ${sources.join(',')})` : ''}`)
-
     // Use explicit dates if provided, otherwise use range preset
     const { startDate, endDate } = (startDateParam && endDateParam)
       ? { startDate: startDateParam, endDate: endDateParam }
       : getDateRange(range)
 
-    console.log(`[About Analytics] Using date range: ${startDate} to ${endDate}`)
-
     // DB-only: fetch data from database (populated by the Chrome extension)
     const daily = await getFromDatabase(startDate, endDate)
-    console.log(`[About Analytics] Got ${daily.length} rows from DB`)
-
     if (daily.length === 0) {
       return NextResponse.json(emptyResponse(range, startDate, endDate, sourceFilteringNote))
     }
@@ -260,8 +254,6 @@ export async function GET(request: Request) {
     const avgConversionRate = totalVisitors > 0
       ? (totalNewMembers / totalVisitors) * 100
       : 0
-
-    console.log(`[About Analytics] Totals: ${totalVisitors} visitors, ${totalNewMembers} new members, ${avgConversionRate.toFixed(1)}% conversion`)
 
     const response: AboutAnalyticsResponse = {
       daily,

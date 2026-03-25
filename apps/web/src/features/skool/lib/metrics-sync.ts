@@ -5,7 +5,7 @@
  * Metrics are now written by the Chrome extension via /api/extension/* endpoints.
  */
 
-import { db, eq, desc, asc, gte } from '@0ne/db/server'
+import { db, eq, desc, asc, gte, and } from '@0ne/db/server'
 import { skoolMetrics } from '@0ne/db/server'
 import { DEFAULT_GROUP } from './config'
 import type { SkoolMetricsSnapshot } from './types'
@@ -50,13 +50,13 @@ export async function getMetricsHistory(
   const startDateStr = startDate.toISOString().split('T')[0]
 
   const data = await db.select().from(skoolMetrics)
-    .where(eq(skoolMetrics.groupSlug, groupSlug))
+    .where(and(
+      eq(skoolMetrics.groupSlug, groupSlug),
+      gte(skoolMetrics.snapshotDate, startDateStr)
+    ))
     .orderBy(asc(skoolMetrics.snapshotDate))
 
-  // Filter by date in JS since snapshotDate is a date type
-  const filtered = data.filter((d) => (d.snapshotDate || '') >= startDateStr)
-
-  return filtered.map((d) => ({
+  return data.map((d) => ({
     groupSlug: d.groupSlug || '',
     snapshotDate: d.snapshotDate || '',
     membersTotal: d.membersTotal,

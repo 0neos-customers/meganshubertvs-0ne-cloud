@@ -15,74 +15,10 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { db, eq, gte, lte, and, count } from '@0ne/db/server'
 import { ghlTransactions } from '@0ne/db/server'
+import { parseDateRange, calculateChange } from '@/features/kpi/lib'
 import { getLatestRevenueSnapshot, getRevenueHistory, getMrrChange } from '@/features/skool/lib/revenue-sync'
 
 export const dynamic = 'force-dynamic'
-
-interface DateRangeResult {
-  startDate: string
-  endDate: string
-}
-
-function getDateRangeFromPeriod(period: string): DateRangeResult {
-  const now = new Date()
-  const endDate = now.toISOString().split('T')[0]
-  let startDate: Date
-
-  switch (period) {
-    case '7d':
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case '30d':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    case '90d':
-      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-      break
-    case 'mtd': {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      break
-    }
-    case 'lastMonth': {
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      return {
-        startDate: lastMonth.toISOString().split('T')[0],
-        endDate: new Date(thisMonth.getTime() - 1).toISOString().split('T')[0],
-      }
-    }
-    case 'ytd':
-      startDate = new Date(now.getFullYear(), 0, 1)
-      break
-    case 'lifetime':
-      startDate = new Date('2020-01-01')
-      break
-    default:
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  }
-
-  return {
-    startDate: startDate.toISOString().split('T')[0],
-    endDate,
-  }
-}
-
-function parseDateRange(searchParams: URLSearchParams): DateRangeResult {
-  const startDateParam = searchParams.get('startDate')
-  const endDateParam = searchParams.get('endDate')
-
-  if (startDateParam && endDateParam) {
-    return { startDate: startDateParam, endDate: endDateParam }
-  }
-
-  const period = searchParams.get('period') || 'mtd'
-  return getDateRangeFromPeriod(period)
-}
-
-function calculateChange(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0
-  return ((current - previous) / previous) * 100
-}
 
 export async function GET(request: Request) {
   const { userId } = await auth()
@@ -104,8 +40,6 @@ export async function GET(request: Request) {
       .toISOString()
       .split('T')[0]
 
-    console.log(`[Revenue API] Fetching for ${startDate} to ${endDate}, prev: ${previousStartDate} to ${previousEndDate}`)
-
     // =============================================================================
     // RECURRING REVENUE (Skool Subscriptions)
     // =============================================================================
@@ -122,8 +56,6 @@ export async function GET(request: Request) {
     const recurringPrevious = mrrChange.startMrr || 0
     const recurringChange = mrrChange.change || 0
     const recurringChangePercent = mrrChange.changePercent || 0
-
-    console.log(`[Revenue API] Recurring: $${recurringCurrent} (change: $${recurringChange})`)
 
     // =============================================================================
     // ONE-TIME REVENUE (GHL Invoice Payments)
@@ -169,8 +101,6 @@ export async function GET(request: Request) {
 
     const hasTransactionData = (transactionCount || 0) > 0
 
-    console.log(`[Revenue API] One-Time: $${oneTimeCurrent} (${currentTransactions?.length || 0} transactions)`)
-
     // =============================================================================
     // TOTAL REVENUE
     // =============================================================================
@@ -186,7 +116,8 @@ export async function GET(request: Request) {
 
     // Add recurring revenue from Skool snapshots
     for (const snapshot of revenueHistory) {
-      const month = snapshot.snapshotDate!.substring(0, 7) // YYYY-MM
+      if (!snapshot.snapshotDate) continue
+      const month = snapshot.snapshotDate.substring(0, 7) // YYYY-MM
       if (!monthlyMap.has(month)) {
         monthlyMap.set(month, { total: 0, oneTime: 0, recurring: 0 })
       }
@@ -211,7 +142,8 @@ export async function GET(request: Request) {
       )
 
     for (const txn of monthlyTransactions) {
-      const month = txn.transactionDate!.toISOString().substring(0, 7) // YYYY-MM
+      if (!txn.transactionDate) continue
+      const month = txn.transactionDate.toISOString().substring(0, 7) // YYYY-MM
       if (!monthlyMap.has(month)) {
         monthlyMap.set(month, { total: 0, oneTime: 0, recurring: 0 })
       }
