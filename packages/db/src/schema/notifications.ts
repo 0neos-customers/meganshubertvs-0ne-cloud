@@ -3,7 +3,7 @@ import { pgTable, text, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-
 // ─── Notification Preferences ────────────────────────────────────────────────
 
 export const notificationPreferences = pgTable('notification_preferences', {
-  userId: text('user_id').primaryKey(),
+  clerkUserId: text('clerk_user_id').primaryKey(),
   dailySnapshotEnabled: boolean('daily_snapshot_enabled').default(false),
   deliveryTime: text('delivery_time'),
   deliveryEmail: text('delivery_email'),
