@@ -141,7 +141,6 @@ export const expenses = pgTable('expenses', {
   isSystem: boolean('is_system').default(false),
   metaSyncDate: date('meta_sync_date'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
 
 // ─── Revenue ─────────────────────────────────────────────────────────────────
