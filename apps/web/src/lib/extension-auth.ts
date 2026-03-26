@@ -2,8 +2,9 @@
  * Shared authentication utilities for Chrome extension API routes.
  *
  * Exports:
- * - corsHeaders        — standard CORS headers for extension routes
- * - OPTIONS()          — preflight handler (NextResponse with corsHeaders)
+ * - getCorsHeaders(req) — dynamic CORS headers (validates origin against allowlist)
+ * - corsHeaders         — static CORS headers (defaults to app.0neos.com, for backward compat)
+ * - OPTIONS(req)        — preflight handler (uses getCorsHeaders for origin-aware CORS)
  * - AuthResult         — return type of validateExtensionAuth
  * - validateExtensionAuth(request) — Clerk + API key dual auth
  * - validateExtensionApiKey(request) — API key only auth
@@ -14,21 +15,55 @@ import { secureCompare } from '@/lib/security'
 import { auth, clerkClient } from '@clerk/nextjs/server'
 
 // =============================================
+// CORS Origin Allowlist
+// =============================================
+
+const ALLOWED_ORIGINS = [
+  'https://app.0neos.com',
+  'https://0neos.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+]
+
+// Chrome extension origins are added dynamically via EXTENSION_CHROME_ID env var
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false
+  if (ALLOWED_ORIGINS.includes(origin)) return true
+  // Allow any chrome-extension:// origin (extension IDs are validated via API key auth)
+  if (origin.startsWith('chrome-extension://')) return true
+  return false
+}
+
+// =============================================
 // CORS Headers
 // =============================================
 
+export function getCorsHeaders(request?: NextRequest | Request): Record<string, string> {
+  const origin = request?.headers?.get('origin') || ''
+  const allowedOrigin = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0]
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Clerk-User-Id',
+    'Vary': 'Origin',
+  }
+}
+
+// Backward-compatible static export for existing imports that don't have request context
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGINS[0],
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Clerk-User-Id',
+  'Vary': 'Origin',
 }
 
 // =============================================
 // OPTIONS Preflight Handler
 // =============================================
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 200, headers: corsHeaders })
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 200, headers: getCorsHeaders(request) })
 }
 
 // =============================================

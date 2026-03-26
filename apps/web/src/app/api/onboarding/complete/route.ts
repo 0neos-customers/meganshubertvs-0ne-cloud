@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server'
 import { auth, clerkClient } from '@clerk/nextjs/server'
+import { safeErrorResponse } from '@/lib/security'
 
 export async function POST() {
   const { userId } = await auth.protect()
 
   const client = await clerkClient()
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: { onboardingComplete: true },
-  })
+  const user = await client.users.getUser(userId)
 
-  return NextResponse.json({ success: true })
+  // Already completed — idempotent success
+  if (user.publicMetadata?.onboardingComplete === true) {
+    return NextResponse.json({ success: true, alreadyComplete: true })
+  }
+
+  try {
+    await client.users.updateUserMetadata(userId, {
+      publicMetadata: { onboardingComplete: true },
+    })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return safeErrorResponse('Failed to complete onboarding', error)
+  }
 }

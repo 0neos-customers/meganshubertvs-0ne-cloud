@@ -29,6 +29,7 @@ import {
 import {
   resolveOutboundStaff,
 } from '@/features/dm-sync/lib/staff-users'
+import { safeErrorResponse } from '@/lib/security'
 
 // Disable body parsing - we need raw body for signature verification
 export const runtime = 'nodejs'
@@ -101,16 +102,24 @@ export async function POST(request: Request) {
     // Use messageText instead of body from here on
     const body = messageText
 
-    // 4b. Validate conversationProviderId matches our registered provider (extra security)
-    const incomingProviderId = rawPayload.conversationProviderId as string | undefined
+    // 4b. Validate conversationProviderId matches our registered provider
+    const incomingProviderId = (rawPayload.conversationProviderId as string | undefined)?.trim()
     const expectedProviderId = process.env.GHL_CONVERSATION_PROVIDER_ID?.trim()
 
-    if (expectedProviderId && incomingProviderId && incomingProviderId !== expectedProviderId) {
-      console.error('[GHL Webhook] Provider ID mismatch')
-      return NextResponse.json(
-        { error: 'Invalid conversation provider' },
-        { status: 403 }
-      )
+    if (expectedProviderId) {
+      // Provider ID is configured — incoming MUST match
+      if (!incomingProviderId || incomingProviderId !== expectedProviderId) {
+        console.error('[GHL Webhook] Provider ID mismatch or missing:', {
+          expected: expectedProviderId,
+          received: incomingProviderId || '(none)',
+        })
+        return NextResponse.json(
+          { error: 'Invalid conversation provider' },
+          { status: 403 }
+        )
+      }
+    } else {
+      console.warn('[GHL Webhook] GHL_CONVERSATION_PROVIDER_ID not configured — skipping provider validation')
     }
 
     // 5. Look up Skool user from dm_contact_mappings (by ghl_contact_id)
@@ -227,25 +236,11 @@ export async function POST(request: Request) {
       })
     } catch (insertError) {
       console.error('[GHL Webhook] Failed to queue message:', insertError)
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to queue message',
-          details: insertError instanceof Error ? insertError.message : String(insertError),
-        },
-        { status: 500 }
-      )
+      return safeErrorResponse('Failed to queue message', insertError)
     }
   } catch (error) {
     console.error('[GHL Webhook] Unexpected error:', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    return safeErrorResponse('Internal server error', error)
   }
 }
 

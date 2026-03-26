@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { auth, clerkClient } from '@clerk/nextjs/server'
 import { db, eq, and } from '@0ne/db/server'
 import { invites } from '@0ne/db/server'
+import { safeErrorResponse } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
   const { userId } = await auth.protect()
+
+  // Verify user has admin role
+  const client = await clerkClient()
+  const user = await client.users.getUser(userId)
+  const role = user.publicMetadata?.role as string | undefined
+  if (role !== 'admin' && role !== 'owner') {
+    return NextResponse.json({ error: 'Forbidden — admin role required' }, { status: 403 })
+  }
+
   const body = await request.json()
   const { invite_token } = body
 
@@ -24,6 +34,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 })
+    return safeErrorResponse('Failed to accept invite', error)
   }
 }
