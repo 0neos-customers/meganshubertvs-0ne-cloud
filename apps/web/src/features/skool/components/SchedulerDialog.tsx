@@ -43,7 +43,7 @@ interface SchedulerDialogProps {
 }
 
 const defaultFormData: SchedulerFormData = {
-  groupSlug: 'fruitful',
+  groupSlug: 'my-community',
   category: '',
   categoryId: null,
   dayOfWeek: 1, // Monday
@@ -71,7 +71,7 @@ export function SchedulerDialog({
     if (open && scheduler) {
       setFormData({
         id: scheduler.id,
-        groupSlug: scheduler.groupSlug || 'fruitful',
+        groupSlug: scheduler.groupSlug || 'my-community',
         category: scheduler.category || '',
         categoryId: scheduler.categoryId || null,
         dayOfWeek: scheduler.dayOfWeek ?? 1,

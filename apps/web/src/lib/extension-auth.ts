@@ -3,7 +3,7 @@
  *
  * Exports:
  * - getCorsHeaders(req) — dynamic CORS headers (validates origin against allowlist)
- * - corsHeaders         — static CORS headers (defaults to app.0neos.com, for backward compat)
+ * - corsHeaders         — static CORS headers (defaults to production domain, for backward compat)
  * - OPTIONS(req)        — preflight handler (uses getCorsHeaders for origin-aware CORS)
  * - AuthResult         — return type of validateExtensionAuth
  * - validateExtensionAuth(request) — Clerk + API key dual auth
@@ -18,9 +18,19 @@ import { auth, clerkClient } from '@clerk/nextjs/server'
 // CORS Origin Allowlist
 // =============================================
 
+let appOrigin = 'http://localhost:3000'
+let baseDomain = 'http://localhost:3000'
+try {
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  appOrigin = new URL(APP_URL).origin
+  baseDomain = appOrigin.replace('://app.', '://')
+} catch {
+  // Malformed NEXT_PUBLIC_APP_URL — fall back to localhost
+}
+
 const ALLOWED_ORIGINS = [
-  'https://app.0neos.com',
-  'https://0neos.com',
+  appOrigin,
+  baseDomain,
   'http://localhost:3000',
   'http://localhost:3001',
 ]

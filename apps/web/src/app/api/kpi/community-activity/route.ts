@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       .from(skoolCommunityActivityDaily)
       .where(
         and(
-          eq(skoolCommunityActivityDaily.groupSlug, 'fruitful'),
+          eq(skoolCommunityActivityDaily.groupSlug, 'my-community'),
           gte(skoolCommunityActivityDaily.date, startDate),
           lte(skoolCommunityActivityDaily.date, endDate),
         )

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { OWNER_NAME, SUPPORT_EMAIL } from "@/lib/template-config";
 
 export const metadata: Metadata = {
   title: "Information Security Policy — 0ne Cloud",
@@ -31,8 +32,8 @@ export default function InformationSecurityPolicy() {
             <p className="mb-3">
               This Information Security Policy defines the security objectives,
               accountability, and scope for 0ne Cloud (&quot;the
-              application&quot;), operated by Jimmy Fuentes as a sole proprietor
-              under Designed With Pixels LLC. The purpose of this policy is to:
+              application&quot;), operated by {OWNER_NAME} as the owner.
+              The purpose of this policy is to:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>
@@ -67,8 +68,7 @@ export default function InformationSecurityPolicy() {
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>
-                The 0ne Cloud web application hosted on Vercel
-                (app.0neos.com).
+                The 0ne Cloud web application hosted on Vercel.
               </li>
               <li>The Neon PostgreSQL database and all stored data.</li>
               <li>
@@ -80,10 +80,10 @@ export default function InformationSecurityPolicy() {
               <li>Development environments and source code repositories.</li>
             </ul>
             <p className="mt-3">
-              As a sole-proprietor operation, Jimmy Fuentes serves as the
+              {OWNER_NAME} serves as the
               owner, developer, and administrator responsible for all security
               decisions, implementation, and incident response. All security
-              accountability rests with the sole operator.
+              accountability rests with the operator.
             </p>
           </section>
 
@@ -307,8 +307,8 @@ export default function InformationSecurityPolicy() {
               9. Policy Review and Approval
             </h2>
             <p className="mb-3">
-              This policy is approved by Jimmy Fuentes, owner and sole operator
-              of 0ne Cloud, operating under Designed With Pixels LLC.
+              This policy is approved by {OWNER_NAME}, owner and operator
+              of 0ne Cloud.
             </p>
             <p className="mb-3">
               This policy is reviewed and updated:
@@ -324,8 +324,7 @@ export default function InformationSecurityPolicy() {
               </li>
             </ul>
             <p className="mt-3">
-              <strong>Approved by:</strong> Jimmy Fuentes, Owner — Designed With
-              Pixels LLC
+              <strong>Approved by:</strong> {OWNER_NAME}, Owner
             </p>
             <p>
               <strong>Approval date:</strong> March 13, 2026
@@ -337,10 +336,10 @@ export default function InformationSecurityPolicy() {
             <p>
               For questions about this security policy, contact us at:{" "}
               <a
-                href="mailto:designedwithpixels@gmail.com"
+                href={`mailto:${SUPPORT_EMAIL}`}
                 className="text-[#FF692D] underline"
               >
-                designedwithpixels@gmail.com
+                {SUPPORT_EMAIL}
               </a>
             </p>
           </section>

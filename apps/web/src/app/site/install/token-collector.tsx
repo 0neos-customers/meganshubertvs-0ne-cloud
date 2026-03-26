@@ -324,7 +324,7 @@ export function OneDownloadSection() {
     <div className="mt-10 p-6 rounded-xl border-2 border-[var(--color-orange)]/20 bg-[var(--color-orange)]/5">
       <h3 className="font-bold text-lg mb-2">Download 0ne</h3>
       <p className="text-sm text-[var(--color-muted)] mb-4">
-        Enter the token Jimmy gave you to download 0ne with all your credentials pre-loaded.
+        Enter the token your administrator gave you to download 0ne with all your credentials pre-loaded.
       </p>
       <label className="block text-sm font-medium mb-1.5">0ne Token</label>
       <input

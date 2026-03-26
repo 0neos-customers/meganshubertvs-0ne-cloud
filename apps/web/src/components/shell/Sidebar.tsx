@@ -23,6 +23,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { SyncStatusIndicator } from './SyncStatusIndicator'
 import type { AppId, UserPermissions } from '@0ne/auth/permissions'
 import { getAppNavigation } from '@/lib/apps'
+import { ORG_NAME } from '@/lib/template-config'
 
 export interface NavItem {
   name: string
@@ -269,10 +270,10 @@ export function Sidebar({ navigation }: SidebarProps) {
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                Jimmy Fuentes
+                {user?.fullName || 'User'}
               </p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                Fruitful Funding
+                {ORG_NAME}
               </p>
             </div>
           </div>

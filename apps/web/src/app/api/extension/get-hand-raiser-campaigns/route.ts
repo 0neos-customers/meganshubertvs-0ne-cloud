@@ -28,12 +28,12 @@ interface CampaignResponse {
 
 /**
  * Extract community slug from a Skool post URL
- * e.g. "https://www.skool.com/fruitful/some-post-abc123" -> "fruitful"
+ * e.g. "https://www.skool.com/my-community/some-post-abc123" -> "my-community"
  */
 function extractCommunitySlug(postUrl: string): string {
   try {
     const url = new URL(postUrl)
-    // Path is like /fruitful/some-post-slug-abc123
+    // Path is like /my-community/some-post-slug-abc123
     const parts = url.pathname.split('/').filter(Boolean)
     return parts[0] || 'unknown'
   } catch {

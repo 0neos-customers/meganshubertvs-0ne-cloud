@@ -15,7 +15,7 @@ export const skoolVariationGroups = pgTable('skool_variation_groups', {
 
 export const skoolScheduledPosts = pgTable('skool_scheduled_posts', {
   id: uuid('id').primaryKey().defaultRandom(),
-  groupSlug: text('group_slug').default('fruitful'),
+  groupSlug: text('group_slug').default('my-community'),
   category: text('category'),
   categoryId: text('category_id'),
   dayOfWeek: integer('day_of_week'),
@@ -101,7 +101,7 @@ export const skoolCampaigns = pgTable('skool_campaigns', {
 
 export const skoolOneoffPosts = pgTable('skool_oneoff_posts', {
   id: uuid('id').primaryKey().defaultRandom(),
-  groupSlug: text('group_slug').default('fruitful'),
+  groupSlug: text('group_slug').default('my-community'),
   category: text('category'),
   categoryId: text('category_id'),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),

@@ -239,7 +239,7 @@ function ContactActions({
       {/* Skool DM deep link */}
       {channelId ? (
         <a
-          href={`https://www.skool.com/${contact.skoolCommunitySlug || 'fruitful'}/-/dm?channel=${channelId}`}
+          href={`https://www.skool.com/${contact.skoolCommunitySlug || 'my-community'}/-/dm?channel=${channelId}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center h-7 w-7 rounded text-blue-600 hover:text-blue-700 hover:bg-blue-50 relative"

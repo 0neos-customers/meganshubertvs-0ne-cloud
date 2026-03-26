@@ -42,7 +42,7 @@ export function useCategories(groupSlug?: string): UseCategoriesReturn {
       const response = await fetch('/api/skool/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ group: groupSlug || 'fruitful' }),
+        body: JSON.stringify({ group: groupSlug || 'my-community' }),
       })
 
       if (!response.ok) {

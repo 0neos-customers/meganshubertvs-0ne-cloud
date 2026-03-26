@@ -17,7 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
         </div>
         <p className="text-sm text-white/30">
-          0neos.com
+          {process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'your-app.vercel.app'}
         </p>
       </div>
 

@@ -7,10 +7,10 @@
  * Categories are pushed by the Chrome extension via /api/extension/push-categories.
  *
  * Query params (GET):
- * - group: Group slug (default: 'fruitful')
+ * - group: Group slug (default: 'my-community')
  *
  * Body (POST):
- * - group: Group slug (default: 'fruitful')
+ * - group: Group slug (default: 'my-community')
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,20 +21,20 @@ import { skoolCategories } from '@0ne/db/server'
 
 export const dynamic = 'force-dynamic'
 
-// Fallback categories for the Fruitful community (used when DB cache is empty)
-const FRUITFUL_FALLBACK_CATEGORIES = [
-  { id: null, name: 'The Money Room' },
-  { id: null, name: 'Funding Club' },
-  { id: null, name: 'Funding Hot Seat' },
+// Fallback categories (customize for your community)
+const DEFAULT_FALLBACK_CATEGORIES = [
   { id: null, name: 'General' },
+  { id: null, name: 'Resources' },
   { id: null, name: 'Wins' },
+  { id: null, name: 'Questions' },
+  { id: null, name: 'Introductions' },
 ]
 
 export async function GET(request: NextRequest) {
   try {
     await requireAuth()
     const { searchParams } = new URL(request.url)
-    const groupSlug = searchParams.get('group') || 'fruitful'
+    const groupSlug = searchParams.get('group') || 'my-community'
 
     // Get categories from database cache
     const cachedCategories = await db
@@ -66,10 +66,10 @@ export async function GET(request: NextRequest) {
     // No DB data — return static fallback
     console.log(`[Categories API] No cached categories for "${groupSlug}", returning fallback`)
     return NextResponse.json({
-      categories: FRUITFUL_FALLBACK_CATEGORIES,
+      categories: DEFAULT_FALLBACK_CATEGORIES,
       source: 'fallback',
       note: 'No cached categories. The Chrome extension will sync them automatically.',
-      count: FRUITFUL_FALLBACK_CATEGORIES.length,
+      count: DEFAULT_FALLBACK_CATEGORIES.length,
     })
   } catch (error) {
     if (error instanceof AuthError) {
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     }
     console.error('[Categories API] GET exception:', error)
     return NextResponse.json({
-      categories: FRUITFUL_FALLBACK_CATEGORIES,
+      categories: DEFAULT_FALLBACK_CATEGORIES,
       source: 'fallback',
       note: 'API error — using fallback categories.',
     })
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth()
     const body = await request.json().catch(() => ({}))
-    const groupSlug = body.group || 'fruitful'
+    const groupSlug = body.group || 'my-community'
 
     console.log(`[Categories API] Refresh requested for group: ${groupSlug} (DB-only, no server-side fetch)`)
 
@@ -126,10 +126,10 @@ export async function POST(request: NextRequest) {
     // No data — return fallback
     return NextResponse.json({
       success: true,
-      categories: FRUITFUL_FALLBACK_CATEGORIES,
+      categories: DEFAULT_FALLBACK_CATEGORIES,
       source: 'fallback',
       note: 'No cached categories. The Chrome extension will sync them automatically.',
-      count: FRUITFUL_FALLBACK_CATEGORIES.length,
+      count: DEFAULT_FALLBACK_CATEGORIES.length,
     })
   } catch (error) {
     if (error instanceof AuthError) {

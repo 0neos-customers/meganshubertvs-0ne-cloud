@@ -35,6 +35,20 @@ KPI Dashboard feature complete (verification pending). Skool GHL Sync functional
 - `CRON_SECRET` needs to be added to Vercel environment variables
 - Manual verification checklist not yet run
 
+## Open Product Concerns
+
+### Build Cost Mitigation for Non-Technical Clients
+**Problem:** Clients using 0ne Cloud who aren't developers may push constantly for every tiny change without using local dev previews, burning through Vercel build minutes (Pro = 24,000/mo, ~$0.01/min overage).
+
+**Mitigations to evaluate:**
+- [ ] **Ignored Build Step** — Vercel setting: bash script that skips builds when only non-app files changed (docs, markdown, config). Biggest single lever.
+- [ ] **Preview deployment limits** — Restrict which branches trigger preview builds (PR-only, not every push)
+- [ ] **Spend alerts / hard caps** — Vercel Pro spend management to catch runaway usage early
+- [ ] **Client education** — Onboarding guidance: "run `bun dev` locally, push only when ready"
+- [ ] **Research findings** — See research on how vibe-coding platforms (Lovable, Bolt, etc.) and other SaaS handle this. May reveal better patterns (build caching, incremental deploys, alternative hosts, etc.)
+
+**Context:** This is a product-level concern for the SaaS offering, not Jimmy's personal usage. Non-technical clients won't naturally batch their pushes or use local previews.
+
 ## Next Steps
 1. **KPI Dashboard:** Jimmy runs verification checklist in browser
 2. **KPI Dashboard:** Add `CRON_SECRET` to Vercel, build GHL Revenue Workflows

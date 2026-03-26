@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { OWNER_NAME, SUPPORT_EMAIL } from "@/lib/template-config";
 
 export const metadata: Metadata = {
   title: "Access Control Policy — 0ne Cloud",
@@ -30,8 +31,7 @@ export default function AccessControlPolicy() {
             <p>
               This Access Control Policy defines the principles, procedures, and
               controls governing access to 0ne Cloud (&quot;the
-              application&quot;) systems and data. It is operated by Jimmy
-              Fuentes as a sole proprietor under Designed With Pixels LLC. This
+              application&quot;) systems and data. It is operated by {OWNER_NAME} as the owner. This
               policy ensures that access is granted based on the principle of
               least privilege and that all access is appropriately managed,
               monitored, and revoked when no longer needed.
@@ -376,12 +376,11 @@ export default function AccessControlPolicy() {
               10. Policy Approval
             </h2>
             <p className="mb-3">
-              This policy is approved by Jimmy Fuentes, owner and sole operator
-              of 0ne Cloud, operating under Designed With Pixels LLC.
+              This policy is approved by {OWNER_NAME}, owner and operator
+              of 0ne Cloud.
             </p>
             <p>
-              <strong>Approved by:</strong> Jimmy Fuentes, Owner — Designed With
-              Pixels LLC
+              <strong>Approved by:</strong> {OWNER_NAME}, Owner
             </p>
             <p>
               <strong>Approval date:</strong> March 13, 2026
@@ -393,10 +392,10 @@ export default function AccessControlPolicy() {
             <p>
               For questions about this access control policy, contact us at:{" "}
               <a
-                href="mailto:designedwithpixels@gmail.com"
+                href={`mailto:${SUPPORT_EMAIL}`}
                 className="text-[#FF692D] underline"
               >
-                designedwithpixels@gmail.com
+                {SUPPORT_EMAIL}
               </a>
             </p>
           </section>

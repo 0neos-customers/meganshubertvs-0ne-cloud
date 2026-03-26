@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         // Primary stage = furthest in funnel (first in allStages since FUNNEL_STAGE_ORDER is highest first)
         const stage = allStages[0] || null
 
-        // NOTE: Previously excluded churned/refunded contacts, but Jimmy wants to match GHL exactly
+        // NOTE: Previously excluded churned/refunded contacts, but matching GHL exactly is preferred
         // Churned contacts still count in their historical funnel stages
         // To exclude churned again, uncomment below:
         // if (tags.some((t) => EXCLUDE_TAGS.some((ex) => t.includes(ex.toLowerCase())))) {

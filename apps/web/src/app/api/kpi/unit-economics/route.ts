@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         retentionRate: skoolRevenueDaily.retentionRate,
       })
       .from(skoolRevenueDaily)
-      .where(eq(skoolRevenueDaily.groupSlug, 'fruitful'))
+      .where(eq(skoolRevenueDaily.groupSlug, 'my-community'))
       .orderBy(desc(skoolRevenueDaily.snapshotDate))
       .limit(1)
 
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
       .from(skoolMembers)
       .where(
         and(
-          eq(skoolMembers.groupSlug, 'fruitful'),
+          eq(skoolMembers.groupSlug, 'my-community'),
           gte(skoolMembers.memberSince, new Date(startDate)),
           lte(skoolMembers.memberSince, new Date(`${endDate}T23:59:59Z`)),
         )
@@ -144,7 +144,7 @@ export async function GET(request: Request) {
         .from(skoolMembers)
         .where(
           and(
-            eq(skoolMembers.groupSlug, 'fruitful'),
+            eq(skoolMembers.groupSlug, 'my-community'),
             lte(skoolMembers.memberSince, new Date(cohortDateStr)),
           )
         )
@@ -168,7 +168,7 @@ export async function GET(request: Request) {
         .from(skoolRevenueDaily)
         .where(
           and(
-            eq(skoolRevenueDaily.groupSlug, 'fruitful'),
+            eq(skoolRevenueDaily.groupSlug, 'my-community'),
             lte(skoolRevenueDaily.snapshotDate, cohortDateStr),
           )
         )

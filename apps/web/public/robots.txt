@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://app.project0ne.ai/sitemap.xml
+Sitemap: https://your-app.vercel.app/sitemap.xml

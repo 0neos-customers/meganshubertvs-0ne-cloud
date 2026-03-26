@@ -144,7 +144,7 @@ function StaffDialog({
               <label htmlFor="displayName" className="text-sm font-medium">Display Name *</label>
               <Input
                 id="displayName"
-                placeholder="Jimmy"
+                placeholder="Alex"
                 value={formData.displayName}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -155,7 +155,7 @@ function StaffDialog({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Shown in message prefixes (e.g., &quot;Jimmy (via Skool)&quot;)
+                Shown in message prefixes (e.g., &quot;Alex (via Skool)&quot;)
               </p>
             </div>
 
@@ -183,7 +183,7 @@ function StaffDialog({
               <label htmlFor="skoolUsername" className="text-sm font-medium">Skool Username</label>
               <Input
                 id="skoolUsername"
-                placeholder="@jimmy"
+                placeholder="@alex"
                 value={formData.skoolUsername}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -193,7 +193,7 @@ function StaffDialog({
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Used for @mention override routing (e.g., @jimmy)
+                Used for @mention override routing (e.g., @alex)
               </p>
             </div>
 

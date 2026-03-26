@@ -335,7 +335,7 @@ export interface SkoolMessageDisplay {
  * Parameters for creating a community post
  */
 export interface CreatePostParams {
-  /** Group slug (e.g., 'fruitful') */
+  /** Group slug (e.g., 'my-community') */
   groupSlug: string
   /** Post title */
   title: string

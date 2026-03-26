@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
 
     // Build conversation list with participant info
     let conversations: Conversation[] = Array.from(conversationMap.values()).map((conv) => {
-      // Resolve the OTHER participant's skoolUserId (from inbound messages, not Jimmy's outbound)
+      // Resolve the OTHER participant's skoolUserId (from inbound messages, not staff's outbound)
       const inboundMsg = conv.messages.find((m) => m.direction === 'inbound')
       const participantUserId = inboundMsg?.skoolUserId || conv.skoolUserId
 

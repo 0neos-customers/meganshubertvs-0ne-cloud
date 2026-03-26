@@ -19,7 +19,7 @@ import { MessageBubble } from './MessageBubble'
 
 interface ConversationDetailProps {
   conversationId: string
-  staffSkoolId?: string // Jimmy's Skool ID for sending (optional - view-only if not set)
+  staffSkoolId?: string // Staff Skool ID for sending (optional - view-only if not set)
 }
 
 // =============================================================================

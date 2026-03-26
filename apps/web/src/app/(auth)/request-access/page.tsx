@@ -20,7 +20,7 @@ export default function RequestAccessPage() {
 
       <div className="space-y-3">
         <a
-          href="https://www.skool.com/fruitful"
+          href="https://www.skool.com/my-community"
           target="_blank"
           rel="noopener noreferrer"
           className="block w-full rounded-md border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-muted transition-colors"

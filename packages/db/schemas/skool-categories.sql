@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS skool_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Group this category belongs to
-  group_slug TEXT NOT NULL DEFAULT 'fruitful',
+  group_slug TEXT NOT NULL DEFAULT 'my-community',
 
   -- Category details from Skool
   skool_id TEXT NOT NULL,             -- Skool's internal label/category ID

@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     const [inserted] = await db
       .insert(skoolOneoffPosts)
       .values({
-        groupSlug: body.groupSlug || 'fruitful',
+        groupSlug: body.groupSlug || 'my-community',
         category: body.category,
         categoryId: body.categoryId || null,
         scheduledAt: scheduledDate,

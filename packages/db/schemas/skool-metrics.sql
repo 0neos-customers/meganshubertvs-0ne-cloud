@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS skool_metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Which group
-  group_slug TEXT NOT NULL DEFAULT 'fruitful',
+  group_slug TEXT NOT NULL DEFAULT 'my-community',
 
   -- Snapshot date (one record per day per group)
   snapshot_date DATE NOT NULL DEFAULT CURRENT_DATE,

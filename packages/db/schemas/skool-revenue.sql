@@ -176,7 +176,7 @@ $$ LANGUAGE plpgsql;
 -- Uncomment and update with current data if you want to seed
 
 -- INSERT INTO skool_revenue_daily (group_slug, snapshot_date, mrr, retention_rate, paying_members)
--- VALUES ('fruitful', CURRENT_DATE, 503.00, 100.0, 5)
+-- VALUES ('my-community', CURRENT_DATE, 503.00, 100.0, 5)
 -- ON CONFLICT (group_slug, snapshot_date) DO NOTHING;
 
 -- =============================================================================

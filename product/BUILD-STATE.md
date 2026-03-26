@@ -36,6 +36,23 @@
 | **Phase 5** | ⬜ Planned | Template update mechanism — push updates to customer forks |
 | **Phase 6** | ⬜ Planned | Billing integration |
 
+### Dual-Purpose Architecture (CRITICAL CONTEXT)
+
+Jimmy's 0ne Cloud main instance serves TWO roles:
+
+1. **SaaS Control Plane** — Manages all customer fork instances (provisioning, updates, billing)
+2. **Client Portal / Coaching Platform** — Client-facing app where Jimmy deploys tools, skill directories, and resources for coaching clients
+
+This means 0ne Cloud main is NOT just an admin dashboard. It's also the product clients interact with directly. Key implications:
+
+- **Skill Marketplace** — A directory of installable skills/tools that connect to 0ne Local (similar to Claude Code's plugin marketplace). Clients browse and install skills from the portal into their local 0ne setup.
+- **Authentication gating** — Skills/tools only accessible to active subscribers. Non-subscribers see the directory but can't download/install.
+- **Distribution options (in priority order):**
+  1. Built-in marketplace with auth (ideal — subscribe to access, one-click install to 0ne Local)
+  2. Leverage Claude Code's plugin/marketplace system if it supports auth gating
+  3. Fallback: Skool classroom with zip file downloads (works but manual)
+- **Instance management + portal coexist** — The same app that manages customer forks also serves as the coaching touchpoint. Navigation needs to accommodate both admin views (instances, billing) and client views (skills, tools, resources).
+
 ### Phase 1: Shell Template Extraction (NEXT)
 
 **Goal:** Create a clean 0ne Cloud starter template that new customers can fork.

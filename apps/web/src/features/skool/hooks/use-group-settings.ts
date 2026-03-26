@@ -16,7 +16,7 @@ export interface UseGroupSettingsReturn {
 /**
  * Hook for fetching group settings including email blast status
  */
-export function useGroupSettings(groupSlug = 'fruitful'): UseGroupSettingsReturn {
+export function useGroupSettings(groupSlug = 'my-community'): UseGroupSettingsReturn {
   const url = `/api/skool/group-settings?groupSlug=${encodeURIComponent(groupSlug)}`
 
   const { data, error, mutate } = useSWR<{
@@ -37,7 +37,7 @@ export function useGroupSettings(groupSlug = 'fruitful'): UseGroupSettingsReturn
  * Record that an email blast was sent
  */
 export async function recordEmailBlast(
-  groupSlug = 'fruitful'
+  groupSlug = 'my-community'
 ): Promise<{ settings?: SkoolGroupSettings; error?: string }> {
   try {
     const response = await fetch('/api/skool/group-settings', {

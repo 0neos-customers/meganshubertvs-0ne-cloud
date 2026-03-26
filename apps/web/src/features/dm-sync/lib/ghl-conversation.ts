@@ -369,10 +369,10 @@ export class GhlConversationProviderClient {
   }
 
   /**
-   * Push outbound message from Jimmy (Skool) to GHL inbox
+   * Push outbound message from staff (Skool) to GHL inbox
    *
    * This creates a message in the GHL unified inbox that appears to come
-   * FROM the business (Jimmy), shown on the RIGHT side of the chat.
+   * FROM the business (staff), shown on the RIGHT side of the chat.
    *
    * Uses the inbound endpoint with direction: 'outbound' to control positioning.
    *

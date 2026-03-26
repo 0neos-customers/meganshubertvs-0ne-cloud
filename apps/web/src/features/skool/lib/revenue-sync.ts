@@ -11,7 +11,7 @@ import { skoolRevenueDaily } from '@0ne/db/server'
 /**
  * Get the latest revenue snapshot for a group
  */
-export async function getLatestRevenueSnapshot(groupSlug: string = 'fruitful') {
+export async function getLatestRevenueSnapshot(groupSlug: string = 'my-community') {
   try {
     const [data] = await db
       .select()
@@ -31,7 +31,7 @@ export async function getLatestRevenueSnapshot(groupSlug: string = 'fruitful') {
  * Get revenue history for a date range
  */
 export async function getRevenueHistory(
-  groupSlug: string = 'fruitful',
+  groupSlug: string = 'my-community',
   startDate: string,
   endDate: string
 ) {
@@ -59,7 +59,7 @@ export async function getRevenueHistory(
  * Get MRR change between two dates
  */
 export async function getMrrChange(
-  groupSlug: string = 'fruitful',
+  groupSlug: string = 'my-community',
   startDate: string,
   endDate: string
 ): Promise<{

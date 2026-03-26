@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: "One OS — Personal AI Infrastructure",
     description:
       "Your personal AI command center. Turn Claude into your executive assistant.",
-    url: "https://0neos.com",
+    url: process.env.NEXT_PUBLIC_APP_URL || "https://your-app.vercel.app",
     siteName: "One OS",
     type: "website",
   },

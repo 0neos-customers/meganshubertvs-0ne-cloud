@@ -5,17 +5,29 @@ import { canAccessApp, type AppId } from '@0ne/auth/permissions'
 // Marketing site paths served on the canonical root domain
 const MARKETING_PATHS = ['/', '/install', '/diy-install', '/download', '/privacy']
 
+// Domain routing configuration — set NEXT_PUBLIC_APP_URL to match your deployment.
+// Assumes app.{domain} subdomain convention for split marketing/app routing.
+// For single-domain deployments (e.g., my-app.vercel.app), marketing routes are unused.
+let APP_HOSTNAME = 'localhost'
+let ROOT_DOMAIN = 'localhost'
+try {
+  APP_HOSTNAME = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').hostname
+  ROOT_DOMAIN = APP_HOSTNAME.replace(/^app\./, '')
+} catch {
+  // Malformed NEXT_PUBLIC_APP_URL — fall back to localhost (no domain routing)
+}
+
 function handleDomainRouting(request: NextRequest): NextResponse | null {
-  const hostname = request.headers.get('host') || ''
+  const hostname = request.headers.get('host')?.split(':')[0] || ''
   const { pathname } = request.nextUrl
 
-  // app.0neos.com — serve the app, no rewriting needed
-  if (hostname === 'app.0neos.com') {
+  // App subdomain — serve the app, no rewriting needed
+  if (hostname === APP_HOSTNAME) {
     return null
   }
 
-  // 0neos.com — canonical marketing domain
-  if (hostname === '0neos.com' || hostname === 'www.0neos.com') {
+  // Root domain — canonical marketing domain
+  if (hostname === ROOT_DOMAIN || hostname === `www.${ROOT_DOMAIN}`) {
     // API routes pass through (download API, etc.)
     if (pathname.startsWith('/api/')) {
       return NextResponse.next()
@@ -31,14 +43,14 @@ function handleDomainRouting(request: NextRequest): NextResponse | null {
     }
     // Non-marketing paths on root domain → redirect to app subdomain
     const url = request.nextUrl.clone()
-    url.host = 'app.0neos.com'
+    url.host = APP_HOSTNAME
     return NextResponse.redirect(url, 307)
   }
 
-  // ALL other domains → 301 permanent redirect to 0neos.com
-  if (hostname !== 'localhost' && hostname !== 'localhost:3000') {
+  // ALL other domains → 301 permanent redirect to root domain
+  if (hostname !== 'localhost') {
     const url = request.nextUrl.clone()
-    url.host = '0neos.com'
+    url.host = ROOT_DOMAIN
     url.port = ''
     return NextResponse.redirect(url, 301)
   }

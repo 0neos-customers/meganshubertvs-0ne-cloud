@@ -50,7 +50,7 @@ interface OneOffPostDialogProps {
 }
 
 const defaultFormData: OneOffPostFormData = {
-  groupSlug: 'fruitful',
+  groupSlug: 'my-community',
   category: '',
   categoryId: null,
   scheduledDate: '',
@@ -96,7 +96,7 @@ export function OneOffPostDialog({
 
       setFormData({
         id: post.id,
-        groupSlug: post.groupSlug || 'fruitful',
+        groupSlug: post.groupSlug || 'my-community',
         category: post.category || '',
         categoryId: post.categoryId || null,
         scheduledDate: scheduledDate,

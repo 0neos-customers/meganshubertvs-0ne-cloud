@@ -4,13 +4,7 @@
   "installCommand": "bun install",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
-  "redirects": [
-    {
-      "source": "/podcast",
-      "destination": "https://open.spotify.com/playlist/5xFAYhRQQaOnMPbmyq49lf",
-      "permanent": true
-    }
-  ],
+  "redirects": [],
   "crons": [
     {
       "path": "/api/cron/sync-ghl",
@@ -27,10 +21,6 @@
     {
       "path": "/api/cron/send-daily-snapshot",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/sync-skool-dms",
-      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/sync-plaid",

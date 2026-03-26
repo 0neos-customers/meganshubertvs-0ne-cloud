@@ -82,7 +82,7 @@ async function fetchRevenueMetrics(): Promise<{
   const today = now.toISOString().split('T')[0]
 
   // Get recurring from Skool
-  const latestSnapshot = await getLatestRevenueSnapshot('fruitful')
+  const latestSnapshot = await getLatestRevenueSnapshot('my-community')
   const recurringCurrent = latestSnapshot?.mrr || 0
 
   // Get previous month for comparison
@@ -90,7 +90,7 @@ async function fetchRevenueMetrics(): Promise<{
     .toISOString()
     .split('T')[0]
   const mrrChange = await getMrrChange(
-    'fruitful',
+    'my-community',
     previousMonthEnd,
     today
   )
@@ -167,10 +167,10 @@ async function fetchSkoolMetrics(): Promise<{
   conversion: number
   retention: number
 }> {
-  const latestSnapshot = await getLatestRevenueSnapshot('fruitful')
+  const latestSnapshot = await getLatestRevenueSnapshot('my-community')
 
   const [{ count: totalMembers }] = await db.select({ count: count() }).from(skoolMembers)
-    .where(eq(skoolMembers.groupSlug, 'fruitful'))
+    .where(eq(skoolMembers.groupSlug, 'my-community'))
 
   const payingMembers = latestSnapshot?.payingMembers || 0
   const members = totalMembers || 0

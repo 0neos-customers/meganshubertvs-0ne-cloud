@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS skool_oneoff_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Target group
-  group_slug TEXT NOT NULL DEFAULT 'fruitful',
+  group_slug TEXT NOT NULL DEFAULT 'my-community',
 
   -- Category targeting
   category TEXT NOT NULL,                -- e.g., "The Money Room"
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS skool_group_settings (
 
 -- Initialize default group settings
 INSERT INTO skool_group_settings (group_slug)
-VALUES ('fruitful')
+VALUES ('my-community')
 ON CONFLICT (group_slug) DO NOTHING;
 
 -- =============================================================================

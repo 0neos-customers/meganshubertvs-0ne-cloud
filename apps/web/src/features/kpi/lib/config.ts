@@ -1,7 +1,7 @@
 /**
  * KPI Dashboard Configuration
  *
- * Updated: 2026-02-05 based on Jimmy's GHL-TAG-MAPPING.md
+ * Customize the funnel stages and tag mappings below for your business.
  *
  * Funnel (8 stages, 2 paths):
  * Member → Hand Raiser → [Qualified Premium | Qualified VIP] → Offer Made → Offer Seen → [Premium | VIP]

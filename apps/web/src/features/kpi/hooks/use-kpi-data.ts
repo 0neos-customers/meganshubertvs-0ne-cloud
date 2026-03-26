@@ -1616,7 +1616,7 @@ const SAMPLE_ABOUT_PAGE_DATA: AboutPageAnalyticsData = {
 }
 
 const SAMPLE_SKOOL_METRICS: SkoolMetricsSnapshot = {
-  groupSlug: 'fruitful',
+  groupSlug: 'my-community',
   snapshotDate: '2026-02-05',
   membersTotal: 2595,
   membersActive: 2589,

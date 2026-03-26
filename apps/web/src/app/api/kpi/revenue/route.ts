@@ -45,13 +45,13 @@ export async function GET(request: Request) {
     // RECURRING REVENUE (Skool Subscriptions)
     // =============================================================================
     // Get latest revenue snapshot (current MRR)
-    const latestSnapshot = await getLatestRevenueSnapshot('fruitful')
+    const latestSnapshot = await getLatestRevenueSnapshot('my-community')
 
     // Get MRR change between periods
-    const mrrChange = await getMrrChange('fruitful', previousEndDate, endDate)
+    const mrrChange = await getMrrChange('my-community', previousEndDate, endDate)
 
     // Get revenue history for trend chart
-    const revenueHistory = await getRevenueHistory('fruitful', startDate, endDate)
+    const revenueHistory = await getRevenueHistory('my-community', startDate, endDate)
 
     const recurringCurrent = latestSnapshot?.mrr || 0
     const recurringPrevious = mrrChange.startMrr || 0

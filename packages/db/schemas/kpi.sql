@@ -96,7 +96,7 @@ CREATE INDEX idx_cohort_type_day ON cohort_snapshots(snapshot_type, snapshot_day
 -- ============================================
 CREATE TABLE campaigns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL, -- 'Fruitful Year Workshop Jan 2026'
+  name TEXT NOT NULL, -- 'My Workshop Jan 2026'
   slug TEXT UNIQUE NOT NULL, -- 'workshop_jan_2026'
   type TEXT, -- 'workshop', 'evergreen', 'challenge'
 

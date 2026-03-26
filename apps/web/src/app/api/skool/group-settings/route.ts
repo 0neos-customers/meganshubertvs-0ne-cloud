@@ -14,13 +14,13 @@ const COOLDOWN_HOURS = 72
  * Get group settings including email blast status
  *
  * Query params:
- * - group_slug: The group to get settings for (default: 'fruitful')
+ * - group_slug: The group to get settings for (default: 'my-community')
  */
 export async function GET(request: NextRequest) {
   try {
     await requireAuth()
     const { searchParams } = new URL(request.url)
-    const groupSlug = searchParams.get('groupSlug') || searchParams.get('group_slug') || 'fruitful'
+    const groupSlug = searchParams.get('groupSlug') || searchParams.get('group_slug') || 'my-community'
 
     const [data] = await db
       .select()
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth()
     const body = await request.json()
-    const groupSlug = body.groupSlug || body.group_slug || 'fruitful'
+    const groupSlug = body.groupSlug || body.group_slug || 'my-community'
 
     const now = new Date()
 

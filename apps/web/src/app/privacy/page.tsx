@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { SUPPORT_EMAIL } from "@/lib/template-config";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — 0ne Cloud",
@@ -25,10 +26,10 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
             <p>
-              PROJECT1.ai and 0ne Cloud (&quot;we,&quot; &quot;our,&quot; or
-              &quot;us&quot;) are operated by Designed With Pixels LLC. This Privacy Policy
+              0ne Cloud (&quot;we,&quot; &quot;our,&quot; or
+              &quot;us&quot;). This Privacy Policy
               explains how we collect, use, and protect your information when you
-              use our websites (project1.ai and 0neos.com) and related
+              use our application and related
               services.
             </p>
           </section>
@@ -179,10 +180,10 @@ export default function PrivacyPolicy() {
               For questions about this privacy policy or to exercise your data
               rights, contact us at:{" "}
               <a
-                href="mailto:designedwithpixels@gmail.com"
+                href={`mailto:${SUPPORT_EMAIL}`}
                 className="text-[#FF692D] underline"
               >
-                designedwithpixels@gmail.com
+                {SUPPORT_EMAIL}
               </a>
             </p>
           </section>

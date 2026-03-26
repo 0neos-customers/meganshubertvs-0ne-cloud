@@ -13,7 +13,7 @@ export const skoolMembers = pgTable('skool_members', {
   location: text('location'),
   profileImage: text('profile_image'),
   socialLinks: jsonb('social_links').default('{}'),
-  groupSlug: text('group_slug').notNull().default('fruitful'),
+  groupSlug: text('group_slug').notNull().default('my-community'),
   memberSince: timestamp('member_since', { withTimezone: true }),
   lastOnline: timestamp('last_online', { withTimezone: true }),
   attributionSource: text('attribution_source'),

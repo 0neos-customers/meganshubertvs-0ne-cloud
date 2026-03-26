@@ -90,7 +90,7 @@ export async function GET(
     const actualMessages = hasMore ? messages.slice(0, limit) : messages
 
     // Get participant info from the first message's skool_user_id
-    // Find the user who is NOT Jimmy (i.e., the inbound message sender)
+    // Find the user who is NOT staff (i.e., the inbound message sender)
     const participantUserId = messages.find((m) => m.direction === 'inbound')?.skoolUserId ||
       messages[0].skoolUserId || ''
 

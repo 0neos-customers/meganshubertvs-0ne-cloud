@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS skool_members (
   social_links JSONB DEFAULT '{}',
 
   -- Group membership
-  group_slug TEXT NOT NULL DEFAULT 'fruitful',
+  group_slug TEXT NOT NULL DEFAULT 'my-community',
   member_since TIMESTAMPTZ,
   last_online TIMESTAMPTZ,
   attribution_source TEXT,

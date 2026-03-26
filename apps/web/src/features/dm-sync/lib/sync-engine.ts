@@ -258,7 +258,7 @@ export async function syncExtensionMessages(
             let ghlMessageId: string
 
             if (message.direction === 'outbound') {
-              // Outbound message (from Jimmy to contact) - appears on RIGHT side in GHL
+              // Outbound message (from staff to contact) - appears on RIGHT side in GHL
               console.log(
                 `[Sync Engine] Syncing extension outbound: ${message.id} (staff: ${staffInfo?.displayName || 'none'})`
               )
@@ -270,7 +270,7 @@ export async function syncExtensionMessages(
                 message.skoolMessageId!
               )
             } else {
-              // Inbound message (from contact to Jimmy) - appears on LEFT side in GHL
+              // Inbound message (from contact to staff) - appears on LEFT side in GHL
               console.log(
                 `[Sync Engine] Syncing extension inbound: ${message.id} (staff: ${staffInfo?.displayName || 'none'})`
               )

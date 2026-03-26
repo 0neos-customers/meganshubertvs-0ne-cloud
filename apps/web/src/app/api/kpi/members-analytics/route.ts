@@ -25,7 +25,7 @@ async function getFilteredBySource(
     .from(skoolMembers)
     .where(
       and(
-        eq(skoolMembers.groupSlug, 'fruitful'),
+        eq(skoolMembers.groupSlug, 'my-community'),
         gte(skoolMembers.memberSince, new Date(`${startDate}T00:00:00Z`)),
         lte(skoolMembers.memberSince, new Date(`${endDate}T23:59:59Z`)),
         sourceFilter,
@@ -63,7 +63,7 @@ async function getFilteredBySource(
     .from(skoolMembers)
     .where(
       and(
-        eq(skoolMembers.groupSlug, 'fruitful'),
+        eq(skoolMembers.groupSlug, 'my-community'),
         lt(skoolMembers.memberSince, new Date(`${startDate}T00:00:00Z`)),
         sourceFilter,
       )
@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
       .from(skoolMembersDaily)
       .where(
         and(
-          eq(skoolMembersDaily.groupSlug, 'fruitful'),
+          eq(skoolMembersDaily.groupSlug, 'my-community'),
           gte(skoolMembersDaily.date, startDate),
           lte(skoolMembersDaily.date, endDate),
         )

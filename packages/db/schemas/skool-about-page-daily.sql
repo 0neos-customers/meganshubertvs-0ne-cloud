@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS skool_about_page_daily (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Which group
-  group_slug TEXT NOT NULL DEFAULT 'fruitful',
+  group_slug TEXT NOT NULL DEFAULT 'my-community',
 
   -- Date of the data point
   date DATE NOT NULL,

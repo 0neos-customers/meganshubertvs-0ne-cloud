@@ -17,7 +17,7 @@ import { ConversationDetail } from '@/features/dm-sync/components/ConversationDe
 // CONSTANTS
 // =============================================================================
 
-// Jimmy's Skool user ID - used for sending outbound messages
+// Staff Skool user ID - used for sending outbound messages
 // TODO: Get this from staff_users table or settings
 const DEFAULT_STAFF_SKOOL_ID = process.env.NEXT_PUBLIC_STAFF_SKOOL_ID || ''
 

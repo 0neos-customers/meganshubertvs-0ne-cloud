@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS skool_scheduled_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Target group
-  group_slug TEXT NOT NULL DEFAULT 'fruitful',
+  group_slug TEXT NOT NULL DEFAULT 'my-community',
 
   -- Category targeting
   category TEXT NOT NULL,           -- e.g., "The Money Room"

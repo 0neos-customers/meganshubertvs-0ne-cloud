@@ -78,12 +78,12 @@ export interface SkoolGroupConfig {
 /**
  * Configured Skool groups
  *
- * Currently just Fruitful - add more groups here as needed.
+ * Configure your community here - add more groups as needed.
  */
 export const SKOOL_GROUPS: SkoolGroupConfig[] = [
   {
-    slug: 'fruitful',
-    name: 'Fruitful Real Estate',
+    slug: 'my-community',
+    name: 'My Community',
     syncMembers: true,
     syncDMs: true,
     enableHandRaiser: true,
@@ -145,11 +145,11 @@ export const MATCHING_CONFIG = {
 } as const
 
 // =============================================================================
-// JIMMY'S SKOOL USER ID
+// STAFF SKOOL USER ID
 // =============================================================================
 
 /**
- * Jimmy's Skool user ID (extracted from auth token)
+ * Staff Skool user ID (set via NEXT_PUBLIC_STAFF_SKOOL_ID env var)
  * Used to determine outbound vs inbound messages
  */
-export const JIMMY_SKOOL_USER_ID = '236af8c631ac4671919a4a9bc1b1fde0'
+export const STAFF_SKOOL_USER_ID = process.env.NEXT_PUBLIC_STAFF_SKOOL_ID || ''
