@@ -5,17 +5,21 @@ import { useSignIn, useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button, Input, Label } from '@0ne/ui'
-import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { OAuthButtons } from '../../_components/oauth-buttons'
+
+type SignInStep = 'credentials' | 'second_factor'
 
 export default function SignInPage() {
   const { isLoaded, signIn, setActive } = useSignIn()
   const { isSignedIn } = useAuth()
   const router = useRouter()
 
+  const [step, setStep] = useState<SignInStep>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -40,35 +44,128 @@ export default function SignInPage() {
       })
 
       if (result.status === 'complete') {
-        try {
-          await setActive({ session: result.createdSessionId })
-          router.push('/')
-        } catch (sessionErr) {
-          console.error('[sign-in] Failed to activate session:', sessionErr)
-          setError('Sign-in succeeded but session activation failed. This domain may not be configured for authentication yet.')
-        }
+        await activateSession(result.createdSessionId!)
+      } else if (result.status === 'needs_second_factor') {
+        // Clerk requires a second factor (email code, TOTP, etc.)
+        // Prepare the email code verification
+        await signIn.prepareSecondFactor({
+          strategy: 'email_code',
+        })
+        setStep('second_factor')
       } else if (result.status === 'needs_identifier') {
         setError('Please enter your email address.')
       } else if (result.status === 'needs_first_factor') {
         setError('Please enter your password.')
       } else {
-        setError(`Sign-in requires additional verification (status: ${result.status}). Please contact support.`)
+        setError(`Unexpected sign-in status: ${result.status}. Please contact support.`)
       }
     } catch (err: unknown) {
-      const clerkError = err as { errors?: { message: string; code?: string }[] }
-      const firstError = clerkError.errors?.[0]
-      if (firstError?.code === 'form_password_incorrect') {
-        setError('Incorrect password. Please try again.')
-      } else if (firstError?.code === 'form_identifier_not_found') {
-        setError('No account found with this email address.')
-      } else {
-        setError(firstError?.message || 'Sign-in failed. Please try again.')
-      }
+      handleClerkError(err)
     } finally {
       setLoading(false)
     }
   }
 
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isLoaded || !signIn) return
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const result = await signIn.attemptSecondFactor({
+        strategy: 'email_code',
+        code: verificationCode,
+      })
+
+      if (result.status === 'complete') {
+        await activateSession(result.createdSessionId!)
+      } else {
+        setError(`Verification incomplete (status: ${result.status}). Please try again.`)
+      }
+    } catch (err: unknown) {
+      handleClerkError(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const activateSession = async (sessionId: string) => {
+    try {
+      await setActive!({ session: sessionId })
+      router.push('/')
+    } catch (sessionErr) {
+      console.error('[sign-in] Failed to activate session:', sessionErr)
+      setError('Sign-in succeeded but session activation failed. This domain may not be configured for authentication yet.')
+    }
+  }
+
+  const handleClerkError = (err: unknown) => {
+    const clerkError = err as { errors?: { message: string; code?: string }[] }
+    const firstError = clerkError.errors?.[0]
+    if (firstError?.code === 'form_password_incorrect') {
+      setError('Incorrect password. Please try again.')
+    } else if (firstError?.code === 'form_identifier_not_found') {
+      setError('No account found with this email address.')
+    } else if (firstError?.code === 'form_code_incorrect') {
+      setError('Incorrect verification code. Please check your email and try again.')
+    } else {
+      setError(firstError?.message || 'Sign-in failed. Please try again.')
+    }
+  }
+
+  // ── Second Factor Step ──────────────────────────────────────────────
+  if (step === 'second_factor') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <button
+            onClick={() => { setStep('credentials'); setError(''); setVerificationCode('') }}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <ArrowLeft className="h-3 w-3" /> Back
+          </button>
+          <h2 className="text-2xl font-heading font-bold">Check your email</h2>
+          <p className="text-muted-foreground mt-1">
+            We sent a verification code to <strong>{email}</strong>
+          </p>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleVerifyCode} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="code">Verification Code</Label>
+            <Input
+              id="code"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="one-time-code"
+              value={verificationCode}
+              onChange={e => setVerificationCode(e.target.value)}
+              placeholder="Enter 6-digit code"
+              required
+              autoFocus
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Verify & Sign In
+          </Button>
+        </form>
+      </div>
+    )
+  }
+
+  // ── Credentials Step ────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div>
