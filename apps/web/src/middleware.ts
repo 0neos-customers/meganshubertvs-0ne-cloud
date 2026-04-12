@@ -116,12 +116,51 @@ function isPublic(pathname: string): boolean {
   return false
 }
 
+/**
+ * OAuth origin cookie — routes Google OAuth responses back to this
+ * instance through the control plane catch-all at
+ * `app.0neos.com/api/oauth/google/callback`.
+ *
+ * The control plane reads this cookie (which is scoped to the whole
+ * `.0neos.com` parent domain, so it's visible from any subdomain) to
+ * know which instance subdomain to 302 back to after Google returns.
+ *
+ * Set here before Better Auth's social sign-in handler runs. Better Auth
+ * then redirects to Google, Google redirects to the control plane, the
+ * control plane reads this cookie, and the browser is sent back to
+ * `{slug}.0neos.com/api/auth/callback/google?code=...&state=...`.
+ *
+ * No shared secret — just a routing hint. The Better Auth `state` param
+ * still provides CSRF end-to-end.
+ */
+function injectOAuthOriginCookie(response: NextResponse): NextResponse {
+  const slug = process.env.NEXT_PUBLIC_INSTANCE_SLUG
+  if (!slug) return response
+  response.cookies.set('0ne-oauth-origin', slug, {
+    domain: '.0neos.com',
+    path: '/',
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 600, // 10 minutes — enough to complete a Google round-trip
+    httpOnly: false, // not a secret, just a routing hint
+  })
+  return response
+}
+
 export default function middleware(request: NextRequest) {
   // Domain routing for marketing site / cross-domain redirects
   const domainResponse = handleDomainRouting(request)
   if (domainResponse) return domainResponse
 
   const { pathname } = request.nextUrl
+
+  // OAuth sign-in initiation: set the origin cookie before Better Auth
+  // redirects to the external provider. Matches `/api/auth/sign-in/social/*`
+  // and `/api/auth/callback/*` (the latter doesn't strictly need it, but
+  // belt-and-suspenders in case of retries).
+  if (pathname.startsWith('/api/auth/sign-in/social')) {
+    return injectOAuthOriginCookie(NextResponse.next())
+  }
 
   if (isPublic(pathname)) {
     return NextResponse.next()
