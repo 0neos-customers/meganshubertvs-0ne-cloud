@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useSidebar } from './SidebarContext'
 import { ThemeToggle } from './ThemeToggle'
-import { ORG_NAME } from '@/lib/template-config'
+// ORG_NAME removed — replaced by Sign Out link in sidebar user section
 
 export interface NavItem {
   name: string
@@ -144,19 +144,16 @@ export function Sidebar({ navigation }: SidebarProps) {
               <p className="text-sm font-medium text-sidebar-foreground truncate">
                 {user?.name || 'User'}
               </p>
-              <p className="text-xs text-sidebar-foreground/60 truncate">
-                {ORG_NAME}
-              </p>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+              >
+                <LogOut className="h-3 w-3" />
+                Sign Out
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="mt-2 flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
-          >
-            <LogOut className="h-3 w-3" />
-            Sign Out
-          </button>
         </div>
 
         {/* Main Navigation */}
