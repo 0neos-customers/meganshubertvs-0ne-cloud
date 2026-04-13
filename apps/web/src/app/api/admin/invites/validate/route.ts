@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, AuthError } from '@/lib/auth-helpers'
 import { db, eq } from '@0ne/db/server'
 import { invites } from '@0ne/db/server'
 
@@ -7,7 +6,6 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth()
     const token = request.nextUrl.searchParams.get('token')
 
     if (!token) {
@@ -40,10 +38,7 @@ export async function GET(request: NextRequest) {
       valid: true,
       invite: { email: data.email, name: data.name },
     })
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
+  } catch {
     return NextResponse.json({ valid: false, error: 'Invalid invite' }, { status: 404 })
   }
 }

@@ -99,6 +99,7 @@ export const auth = betterAuth({
     }),
     twoFactor({
       issuer: '0ne Cloud',
+      allowPasswordless: true,
     }),
   ],
 
